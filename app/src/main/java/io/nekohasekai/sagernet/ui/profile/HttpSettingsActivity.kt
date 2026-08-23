@@ -52,6 +52,10 @@ class HttpSettingsActivity : StandardV2RaySettingsActivity() {
                             setOnPreferenceChangeListener { _, newValue ->
                                 val bean = currentHttpBean()
                                 bean.delHost = newValue as Boolean
+                                // 必须写 profileCacheStore：delHost 不在任何 PreferenceBinding 中，
+                                // 而 ProfileManager.createProfile 会先调 applyDefaultValues()（重置为 false）
+                                // 再调 init()（写缓存）；若缓存是 false，serialize() 就把 false 写进数据库。
+                                DataStore.profileCacheStore.putBoolean("delHost", newValue as Boolean)
                                 true
                             }
                             cat.addPreference(this)
