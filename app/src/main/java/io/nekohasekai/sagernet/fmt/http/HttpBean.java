@@ -59,7 +59,6 @@ public class HttpBean extends StandardV2RayBean {
     public static final Serializable.Creator<HttpBean> CREATOR =
         new Serializable.Creator<HttpBean>() {
             @NonNull
-            @Override
             public HttpBean newInstance() {
                 return new HttpBean();
             }
