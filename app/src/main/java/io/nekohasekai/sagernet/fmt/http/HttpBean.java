@@ -13,21 +13,26 @@ import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean;
 public class HttpBean extends StandardV2RayBean {
 
     public String username;
-    public String password;
+    public String ***word;
+
+    // KunBox: delHost
+    public Boolean delHost;
 
     @Override
     public void initializeDefaultValues() {
         super.initializeDefaultValues();
         if (username == null) username = "";
-        if (password == null) password = "";
+        if (***word == null) ***word = "";
+        if (delHost == null) delHost = false;
     }
 
     @Override
     public void serialize(ByteBufferOutput output) {
-        output.writeInt(0);
+        output.writeInt(1);
         super.serialize(output);
         output.writeString(username);
-        output.writeString(password);
+        output.writeString(***word);
+        output.writeBoolean(delHost);
     }
 
     @Override
@@ -35,7 +40,12 @@ public class HttpBean extends StandardV2RayBean {
         int version = input.readInt();
         super.deserialize(input);
         username = input.readString();
-        password = input.readString();
+        ***word = input.readString();
+        if (version >= 1) {
+            delHost = input.readBoolean();
+        } else {
+            delHost = false;
+        }
     }
 
     @NotNull
