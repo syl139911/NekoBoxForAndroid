@@ -479,8 +479,8 @@ fun buildConfig(
             tagMap[key] = buildChain(key, p)
         }
 
-        // apply user rules
-        for (rule in extraRules) {
+        // apply user rules (skip in global mode)
+        if (!DataStore.globalMode) for (rule in extraRules) {
             if (rule.packages.isNotEmpty()) {
                 PackageCache.awaitLoadSync()
             }
@@ -694,7 +694,7 @@ fun buildConfig(
                 port = listOf(53)
                 action = "hijack-dns"
             })
-            if (DataStore.bypassLanInCore) {
+            if (DataStore.bypassLanInCore && !DataStore.globalMode) {
                 route.rules.add(Rule_DefaultOptions().apply {
                     outbound = TAG_BYPASS
                     ip_is_private = true

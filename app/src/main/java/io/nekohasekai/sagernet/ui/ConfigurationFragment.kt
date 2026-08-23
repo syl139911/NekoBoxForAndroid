@@ -57,6 +57,7 @@ import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.toUniversalLink
 import io.nekohasekai.sagernet.group.GroupUpdater
 import io.nekohasekai.sagernet.group.RawUpdater
+import io.nekohasekai.sagernet.ktx.FixedGridLayoutManager
 import io.nekohasekai.sagernet.ktx.FixedLinearLayoutManager
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.SubscriptionFoundException
@@ -241,6 +242,10 @@ class ConfigurationFragment @JvmOverloads constructor(
         }
 
         DataStore.profileCacheStore.registerChangeListener(this)
+
+        if (!select) {
+            toolbar.menu.findItem(R.id.action_global_mode)?.isChecked = DataStore.globalMode
+        }
     }
 
     override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
@@ -589,6 +594,21 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             R.id.action_connection_url_test -> {
                 urlTest()
+            }
+
+            R.id.action_global_mode -> {
+                item.isChecked = !item.isChecked
+                DataStore.globalMode = item.isChecked
+                if (DataStore.serviceState.canStop) {
+                    runOnDefaultDispatcher {
+                        kotlinx.coroutines.delay(500)
+                        onMainDispatcher {
+                            snackbar(R.string.need_reload).setAction(R.string.apply) {
+                                SagerNet.reloadService()
+                            }.show()
+                        }
+                    }
+                }
             }
         }
         return true
@@ -1034,6 +1054,14 @@ class ConfigurationFragment @JvmOverloads constructor(
         }
     }
 
+    fun switchAllGroupFragmentsLayout() {
+        adapter.groupFragments.values.forEach { fragment ->
+            if (fragment.isAdded && fragment.view != null) {
+                fragment.switchLayoutMode()
+            }
+        }
+    }
+
     class GroupFragment : Fragment() {
 
         lateinit var proxyGroup: ProxyGroup
@@ -1107,6 +1135,20 @@ class ConfigurationFragment @JvmOverloads constructor(
             configurationListView.requestFocus()
         }
 
+        fun switchLayoutMode() {
+            setupLayoutManager()
+            configurationListView.layoutManager = layoutManager
+            adapter?.notifyDataSetChanged()
+        }
+
+        private fun setupLayoutManager() {
+            layoutManager = if (DataStore.groupLayoutMode == 1) {
+                FixedGridLayoutManager(configurationListView, 2)
+            } else {
+                FixedLinearLayoutManager(configurationListView)
+            }
+        }
+
         fun checkOrderMenu() {
             if (select) return
 
@@ -1152,13 +1194,37 @@ class ConfigurationFragment @JvmOverloads constructor(
                 updateTo(GroupOrder.BY_DELAY)
                 true
             }
+
+            // 布局切换
+            val layoutSingle = menu.findItem(R.id.action_layout_single)
+            val layoutDouble = menu.findItem(R.id.action_layout_double)
+            when (DataStore.groupLayoutMode) {
+                0 -> layoutSingle?.isChecked = true
+                1 -> layoutDouble?.isChecked = true
+            }
+            layoutSingle?.setOnMenuItemClickListener {
+                it.isChecked = true
+                if (DataStore.groupLayoutMode != 0) {
+                    DataStore.groupLayoutMode = 0
+                    (parentFragment as? ConfigurationFragment)?.switchAllGroupFragmentsLayout()
+                }
+                true
+            }
+            layoutDouble?.setOnMenuItemClickListener {
+                it.isChecked = true
+                if (DataStore.groupLayoutMode != 1) {
+                    DataStore.groupLayoutMode = 1
+                    (parentFragment as? ConfigurationFragment)?.switchAllGroupFragmentsLayout()
+                }
+                true
+            }
         }
 
         override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
             if (!::proxyGroup.isInitialized) return
 
             configurationListView = view.findViewById(R.id.configuration_list)
-            layoutManager = FixedLinearLayoutManager(configurationListView)
+            setupLayoutManager()
             configurationListView.layoutManager = layoutManager
             adapter = ConfigurationAdapter()
             ProfileManager.addListener(adapter!!)

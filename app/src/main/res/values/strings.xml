@@ -404,6 +404,11 @@
     <string name="group_order_origin">Origin</string>
     <string name="group_order_by_name">By Name</string>
     <string name="group_order_by_delay">By Delay</string>
+    <string name="global_mode">全局模式</string>
+    <string name="sort_and_layout">排序和布局</string>
+    <string name="layout">布局</string>
+    <string name="layout_single_column">单列</string>
+    <string name="layout_double_column">双列</string>
     <string name="plugin_exists_but_on_shit_system">Profile %s requires the %s plugin, but your
         proprietary equipment vendor (usually surveillance capital giants and malware maker)
         tampered with your Android, making the plugin unusable.</string>

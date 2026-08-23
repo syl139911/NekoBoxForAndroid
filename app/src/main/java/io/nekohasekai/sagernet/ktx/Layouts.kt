@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.ktx
 
 import android.graphics.Rect
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import io.nekohasekai.sagernet.database.DataStore
@@ -71,4 +72,34 @@ class FixedLinearLayoutManager(val recyclerView: RecyclerView) :
         return scrollRange
     }
 
+}
+
+class FixedGridLayoutManager(val recyclerView: RecyclerView, spanCount: Int) :
+    GridLayoutManager(recyclerView.context, spanCount) {
+
+    override fun onLayoutChildren(recycler: RecyclerView.Recycler?, state: RecyclerView.State?) {
+        try { super.onLayoutChildren(recycler, state) } catch (_: IndexOutOfBoundsException) {}
+    }
+
+    private var listenerDisabled = false
+
+    override fun scrollVerticallyBy(dx: Int, recycler: RecyclerView.Recycler, state: RecyclerView.State): Int {
+        if (!DataStore.showBottomBar) return super.scrollVerticallyBy(dx, recycler, state)
+        val scrollRange = super.scrollVerticallyBy(dx, recycler, state)
+        if (listenerDisabled) return scrollRange
+        val activity = recyclerView.context as? MainActivity ?: run { listenerDisabled = true; return scrollRange }
+        val overscroll = dx - scrollRange
+        if (overscroll > 0) {
+            val view = (recyclerView.findViewHolderForAdapterPosition(findLastVisibleItemPosition()) ?: return scrollRange).itemView
+            val itemRect = Rect().also { view.getGlobalVisibleRect(it) }
+            val fabRect = Rect().also { activity.binding.fab.getGlobalVisibleRect(it) }
+            if (!itemRect.contains(fabRect.left, fabRect.top) && !itemRect.contains(fabRect.right, fabRect.bottom)) return scrollRange
+            activity.binding.fab.apply { if (isShown) hide() }
+        } else {
+            activity.binding.fab.apply { if (!isShown) show() }
+        }
+        return scrollRange
+    }
+
+    override fun supportsPredictiveItemAnimations() = false
 }
