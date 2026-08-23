@@ -5,8 +5,10 @@ import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
 import org.jetbrains.annotations.NotNull;
 import io.nekohasekai.sagernet.fmt.KryoConverters;
+import io.nekohasekai.sagernet.fmt.Serializable;
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean;
 
+@SuppressWarnings("unchecked")
 public class HttpBean extends StandardV2RayBean {
 
     public String username;
@@ -54,21 +56,22 @@ public class HttpBean extends StandardV2RayBean {
         return KryoConverters.deserialize(new HttpBean(), KryoConverters.serialize(this));
     }
 
-    public static final Creator<HttpBean> CREATOR = new Creator<HttpBean>() {
-        @NonNull
-        @Override
-        public HttpBean newInstance() {
-            return new HttpBean();
-        }
+    public static final Serializable.Creator<HttpBean> CREATOR =
+        new Serializable.Creator<HttpBean>() {
+            @NonNull
+            @Override
+            public HttpBean newInstance() {
+                return new HttpBean();
+            }
 
-        @Override
-        public HttpBean[] newArray(int size) {
-            return new HttpBean[size];
-        }
+            @Override
+            public HttpBean[] newArray(int size) {
+                return new HttpBean[size];
+            }
 
-        @Override
-        public HttpBean createFromParcel(@NonNull android.os.Parcel parcel) {
-            return KryoConverters.deserialize(newInstance(), parcel.createByteArray());
-        }
-    };
+            @Override
+            public HttpBean createFromParcel(@NonNull android.os.Parcel parcel) {
+                return KryoConverters.deserialize(newInstance(), parcel.createByteArray());
+            }
+        };
 }
