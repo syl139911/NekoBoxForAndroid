@@ -6,42 +6,49 @@ import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreference
+import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.fmt.http.HttpBean
-import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 
 class HttpSettingsActivity : StandardV2RaySettingsActivity() {
+
     override fun createEntity() = HttpBean()
 
     override fun PreferenceFragmentCompat.viewCreated(view: View, savedInstanceState: Bundle?) {
-        // 标准偏好屏已由父类 createPreferences 建好；此处仅追加 HTTP 专属开关。
-        // 不调用 super.viewCreated（基类为空实现），避免成员扩展函数的 super 限制。
+        // 父类 createPreferences 已通过 R.xml.standard_v2ray_preferences 建好标准 preference，
+        // 其中 key="path" 的 EditTextPreference 已存在。
+        // 此处仅：1) 将 path 设为可见（HTTP 类型需要）；2) 配置 summaryProvider 和 changeListener；
+        // 3) 追加 delHost 开关。
+
+        // —— path preference（父类标准 preference key="path"，EditTextPreference）——
+        val pathPref = findPreference<EditTextPreference>("path")
+        if (pathPref != null) {
+            // HTTP 类型的 path 即 CONNECT 目标追加路径，确保可见
+            pathPref.isVisible = true
+            pathPref.title = "Proxy Path"
+            pathPref.summaryProvider = EditTextPreference.SimpleSummaryProvider.getInstance()
+            // 监听用户输入，写入 profileCacheStore（与标准 PreferenceBinding 同一 Store）
+            pathPref.setOnPreferenceChangeListener { _, newValue ->
+                DataStore.profileCacheStore.putString("path", newValue as String)
+                true
+            }
+        }
+
+        // —— delHost 追加到 password 所在 category ——
         val screen = preferenceScreen
         for (i in 0 until screen.preferenceCount) {
             val cat = screen.getPreference(i)
             if (cat is PreferenceCategory) {
                 if (findPreference<androidx.preference.Preference>("password")?.parent == cat) {
-                    if (findPreference<androidx.preference.Preference>("path") == null) {
-                        EditTextPreference(requireContext()).apply {
-                            key = "path"
-                            title = "Proxy Path"
-                            summary = "CONNECT 目标追加路径 (如 @gw.alicdn.com)"
-                            summaryProvider = EditTextPreference.SimpleSummaryProvider.getInstance()
-                            text = DataStore.configurationStore.getString("path", "")
-                            setOnPreferenceChangeListener { _, newValue ->
-                                DataStore.configurationStore.putString("path", newValue as String)
-                                true
-                            }
-                            cat.addPreference(this)
-                        }
+                    if (findPreference<androidx.preference.Preference>("delHost") == null) {
                         SwitchPreference(requireContext()).apply {
                             key = "delHost"
                             title = "Del Host"
                             summary = "CONNECT 请求不发送 Host header"
-                            isChecked = DataStore.configurationStore.getBoolean("delHost", false)
+                            isChecked = DataStore.profileCacheStore.getBoolean("delHost", false)
                             setOnPreferenceChangeListener { _, newValue ->
-                                DataStore.configurationStore.putBoolean("delHost", newValue as Boolean)
+                                DataStore.profileCacheStore.putBoolean("delHost", newValue as Boolean)
                                 true
                             }
                             cat.addPreference(this)
@@ -54,8 +61,8 @@ class HttpSettingsActivity : StandardV2RaySettingsActivity() {
     }
 
     override suspend fun saveAndExit() {
-        val delHost = DataStore.configurationStore.getBoolean("delHost", false)
-        val path = DataStore.configurationStore.getString("path", "") ?: ""
+        val delHost = DataStore.profileCacheStore.getBoolean("delHost", false)
+        val path = DataStore.profileCacheStore.getString("path") ?: ""
         val editingId = DataStore.editingId
         if (editingId == 0L) {
             val bean = createEntity() as HttpBean

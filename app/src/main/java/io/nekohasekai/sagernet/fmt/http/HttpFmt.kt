@@ -9,7 +9,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 fun parseHttp(link: String): HttpBean {
     val httpUrl = link.toHttpUrlOrNull() ?: error("Invalid http(s) link: $link")
 
-    if (httpUrl.encodedPath != "/") error("Not http proxy")
+    check(httpUrl.encodedPath == "/") { "Not http proxy" }
 
     return HttpBean().apply {
         serverAddress = httpUrl.host
