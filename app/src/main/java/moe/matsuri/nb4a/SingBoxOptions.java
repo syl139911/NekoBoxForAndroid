@@ -3682,6 +3682,9 @@ public class SingBoxOptions {
 
         public Map<String, String> headers;
 
+        // KunBox
+        public Boolean del_host;
+
     }
 
     public static class Outbound_ShadowsocksOptions extends Outbound {
