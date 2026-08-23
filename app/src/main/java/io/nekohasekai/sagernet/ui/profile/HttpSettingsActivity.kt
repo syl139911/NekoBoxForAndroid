@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreference
+import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 
@@ -11,32 +13,42 @@ class HttpSettingsActivity : StandardV2RaySettingsActivity() {
 
     override fun createEntity() = HttpBean()
 
-    override fun StandardV2RayBean.init() {}
-
-    override fun StandardV2RayBean.serialize() {}
-
     override fun PreferenceFragmentCompat.createPreferences(
         savedInstanceState: Bundle?,
         rootKey: String?,
     ) {
         super.createPreferences(savedInstanceState, rootKey)
 
-        // KunBox: 在 proxy category 里加 delHost 开关
         val screen = preferenceScreen
         for (i in 0 until screen.preferenceCount) {
             val cat = screen.getPreference(i)
             if (cat is PreferenceCategory) {
                 if (findPreference<androidx.preference.Preference>("password")?.parent == cat) {
                     SwitchPreference(requireContext()).apply {
-                        key = "kunboxDelHost"
+                        key = "delHost"
                         title = "Del Host"
                         summary = "CONNECT 请求不发送 Host header"
-                        isChecked = false
+                        isChecked = DataStore.getBoolean("delHost")
                         cat.addPreference(this)
                     }
                     break
                 }
             }
         }
+    }
+
+    override suspend fun saveAndExit() {
+        val delHost = DataStore.getBoolean("delHost")
+        val editingId = DataStore.editingId
+        if (editingId == 0L) {
+            val bean = createEntity() as HttpBean
+            bean.delHost = delHost
+            ProfileManager.createProfile(DataStore.editingGroup, bean.apply { serialize() })
+        } else {
+            val entity = proxyEntity ?: run { finish(); return }
+            (entity.requireBean() as HttpBean).delHost = delHost
+            ProfileManager.updateProfile(entity)
+        }
+        finish()
     }
 }
