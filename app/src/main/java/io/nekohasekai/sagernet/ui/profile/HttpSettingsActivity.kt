@@ -14,7 +14,7 @@ class HttpSettingsActivity : StandardV2RaySettingsActivity() {
     override fun createEntity() = HttpBean()
 
     override fun PreferenceFragmentCompat.createPreferences(savedInstanceState: Bundle?, rootKey: String?) {
-        super.createPreferences(savedInstanceState, rootKey)
+        super<StandardV2RaySettingsActivity>.createPreferences(savedInstanceState, rootKey)
         val screen = preferenceScreen
         for (i in 0 until screen.preferenceCount) {
             val cat = screen.getPreference(i)
@@ -25,14 +25,14 @@ class HttpSettingsActivity : StandardV2RaySettingsActivity() {
                         title = "Proxy Path"
                         summary = "CONNECT 目标追加路径 (如 @gw.alicdn.com)"
                         summaryProvider = EditTextPreference.SimpleSummaryProvider.getInstance()
-                        text = DataStore.getString("path")
+                        text = DataStore.configurationStore.getString("path", "")
                         cat.addPreference(this)
                     }
                     SwitchPreference(requireContext()).apply {
                         key = "delHost"
                         title = "Del Host"
                         summary = "CONNECT 请求不发送 Host header"
-                        isChecked = DataStore.getBoolean("delHost")
+                        isChecked = DataStore.configurationStore.getBoolean("delHost", false)
                         cat.addPreference(this)
                     }
                     break
@@ -42,7 +42,7 @@ class HttpSettingsActivity : StandardV2RaySettingsActivity() {
     }
 
     override suspend fun saveAndExit() {
-        val delHost = DataStore.getBoolean("delHost")
+        val delHost = DataStore.configurationStore.getBoolean("delHost", false)
         val editingId = DataStore.editingId
         if (editingId == 0L) {
             val bean = createEntity() as HttpBean
