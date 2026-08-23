@@ -632,6 +632,8 @@ fun buildSingBoxOutboundStandardV2RayBean(bean: StandardV2RayBean): Outbound {
                 server_port = bean.serverPort
                 username = bean.username
                 password = bean.password
+                path = bean.path
+                del_host = bean.delHost == true
                 tls = buildSingBoxOutboundTLS(bean)
             }
         }
