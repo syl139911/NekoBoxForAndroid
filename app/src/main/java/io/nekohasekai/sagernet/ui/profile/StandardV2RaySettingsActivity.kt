@@ -20,7 +20,7 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
 
     var tmpBean: StandardV2RayBean? = null
 
-    private val pbm = PreferenceBindingManager()
+    protected val pbm = PreferenceBindingManager()
     private val name = pbm.add(PreferenceBinding(Type.Text, "name"))
     private val serverAddress = pbm.add(PreferenceBinding(Type.Text, "serverAddress"))
     private val serverPort = pbm.add(PreferenceBinding(Type.TextToInt, "serverPort"))

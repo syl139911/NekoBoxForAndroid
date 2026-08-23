@@ -11,8 +11,8 @@ import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean;
 /**
  * HTTP 代理 Bean。
  *
- * 序列化格式（v4，path 由父类 StandardV2RayBean 在 type=http 分支写入，此处不重复）：
- *   [父类 StandardV2RayBean v4 序列化的全部内容，包含 serverAddress/serverPort/type/host/path/security/TLS...]
+ * 序列化格式（v4，type 固定为 "http"，父类 StandardV2RayBean 在 http 分支写入 host+path，此处不重复）：
+ *   [父类 StandardV2RayBean v4 序列化的全部内容，包含 serverAddress/serverPort/type="http"/host/path/security/TLS...]
  * * 然后追加：
  *   - username (String)
  *   - password (String)
@@ -30,6 +30,10 @@ public class HttpBean extends StandardV2RayBean {
 
     @Override
     public void initializeDefaultValues() {
+        // 必须在 super 之前设好，否则父类会把 type 默认为 "tcp"，
+        // 导致 serialize 时 switch(type) 走 tcp 分支不写 host/path，
+        // path 在序列化→反序列化过程中丢失，VPN 闪退。
+        if (type == null || type.isBlank()) type = "http";
         super.initializeDefaultValues();
         if (username == null) username = "";
         if (password == null) password = "";
