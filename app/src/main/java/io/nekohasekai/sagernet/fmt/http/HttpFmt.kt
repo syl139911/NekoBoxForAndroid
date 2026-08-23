@@ -7,7 +7,7 @@ import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 fun parseHttp(link: String): HttpBean {
-    val httpUrl = link.toHttpUrlOrNull() ?: error("Invalid http(s) link: $link")
+    val httpUrl = link.toHttpUrlOrNull() ?: error("Invalid http(s) link: ${'$'}link")
 
     if (httpUrl.encodedPath != "/") error("Not http proxy")
 
@@ -19,6 +19,8 @@ fun parseHttp(link: String): HttpBean {
         sni = httpUrl.queryParameter("sni")
         name = httpUrl.fragment
         setTLS(httpUrl.scheme == "https")
+        // KunBox
+        delHost = httpUrl.queryParameter("delHost") == "true"
     }
 }
 
@@ -37,6 +39,10 @@ fun HttpBean.toUri(): String {
     }
     if (sni.isNotBlank()) {
         builder.addQueryParameter("sni", sni)
+    }
+    // KunBox
+    if (delHost == true) {
+        builder.addQueryParameter("delHost", "true")
     }
     if (name.isNotBlank()) {
         builder.encodedFragment(name.urlSafe())
