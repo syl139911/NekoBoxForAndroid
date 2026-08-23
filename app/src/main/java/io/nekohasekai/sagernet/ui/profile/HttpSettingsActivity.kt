@@ -24,13 +24,13 @@ class HttpSettingsActivity : StandardV2RaySettingsActivity() {
         // —— path preference（父类标准 preference key="path"，EditTextPreference）——
         val pathPref = findPreference<EditTextPreference>("path")
         if (pathPref != null) {
-            // HTTP 类型的 path 即 CONNECT 目标追加路径，确保可见
             pathPref.isVisible = true
             pathPref.title = "Proxy Path"
             pathPref.summaryProvider = EditTextPreference.SimpleSummaryProvider.getInstance()
-            // 监听用户输入，写入 profileCacheStore（与标准 PreferenceBinding 同一 Store）
+            // 监听用户输入，直接写回当前编辑的 bean（避免跨 DataStore 实例丢失）
             pathPref.setOnPreferenceChangeListener { _, newValue ->
-                DataStore.profileCacheStore.putString("path", newValue as String)
+                val bean = currentHttpBean()
+                bean.path = newValue as String
                 true
             }
         }
@@ -46,9 +46,11 @@ class HttpSettingsActivity : StandardV2RaySettingsActivity() {
                             key = "delHost"
                             title = "Del Host"
                             summary = "CONNECT 请求不发送 Host header"
-                            isChecked = DataStore.profileCacheStore.getBoolean("delHost", false)
+                            // 初始值：从当前编辑的 bean 读取
+                            isChecked = currentHttpBean().delHost == true
                             setOnPreferenceChangeListener { _, newValue ->
-                                DataStore.profileCacheStore.putBoolean("delHost", newValue as Boolean)
+                                val bean = currentHttpBean()
+                                bean.delHost = newValue as Boolean
                                 true
                             }
                             cat.addPreference(this)
@@ -60,20 +62,31 @@ class HttpSettingsActivity : StandardV2RaySettingsActivity() {
         }
     }
 
+    /** 获取当前编辑的 HttpBean（直接引用，修改会落在同一个对象上） */
+    private fun currentHttpBean(): HttpBean {
+        return if (DataStore.editingId == 0L) {
+            // 新建：bean 在 DataStore.profileCacheStore 临时海吨，读偏好即可
+            // （PreferenceBinding 在 onCreate 时从 createEntity().init() 的 bean 写了初值）
+            createEntity().also { bean ->
+                bean.delHost = DataStore.profileCacheStore.getBoolean("delHost", false)
+                bean.path = DataStore.profileCacheStore.getString("path") ?: ""
+            }
+        } else {
+            // 编辑：从已加载的 entity 取缓存实例（同一引用，修改直接落 entity.data）
+            proxyEntity!!.requireBean() as HttpBean
+        }
+    }
+
     override suspend fun saveAndExit() {
-        val delHost = DataStore.profileCacheStore.getBoolean("delHost", false)
-        val path = DataStore.profileCacheStore.getString("path") ?: ""
+        val bean = currentHttpBean()
         val editingId = DataStore.editingId
         if (editingId == 0L) {
-            val bean = createEntity() as HttpBean
-            bean.delHost = delHost
-            bean.path = path
             ProfileManager.createProfile(DataStore.editingGroup, bean)
         } else {
             val entity = proxyEntity ?: run { finish(); return }
-            val bean = entity.requireBean() as HttpBean
-            bean.delHost = delHost
-            bean.path = path
+            if (entity.id == DataStore.selectedProxy) {
+                SagerNet.stopService()
+            }
             ProfileManager.updateProfile(entity)
         }
         finish()

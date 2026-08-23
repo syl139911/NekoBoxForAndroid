@@ -8,6 +8,19 @@ import io.nekohasekai.sagernet.fmt.KryoConverters;
 import io.nekohasekai.sagernet.fmt.Serializable;
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean;
 
+/**
+ * HTTP 代理 Bean。
+ *
+ * 序列化格式（v4，path 由父类 StandardV2RayBean 在 type=http 分支写入，此处不重复）：
+ *   [父类 StandardV2RayBean v4 序列化的全部内容，包含 serverAddress/serverPort/type/host/path/security/TLS...]
+ * * 然后追加：
+ *   - username (String)
+ *   - password (String)
+ *   - delHost (boolean)
+ *
+ * 反序列化：先走父类 StandardV2RayBean.deserialize（读完 serverAddress/serverPort/type/host/path/...），
+ *          再读 username/password/delHost。path 已在父类读完，此处不再重复读。
+ */
 @SuppressWarnings("unchecked")
 public class HttpBean extends StandardV2RayBean {
 
@@ -23,30 +36,40 @@ public class HttpBean extends StandardV2RayBean {
         if (delHost == null) delHost = false;
     }
 
+    /**
+     * 序列化：先由父类 StandardV2RayBean 写 v4 完整内容（含 type=http 时的 host+path），
+     * 再追加 username/password/delHost。
+     * 注意：path 不在此处重复写入（父类已处理）。
+     */
     @Override
     public void serialize(ByteBufferOutput output) {
         super.serialize(output);
         output.writeString(username);
         output.writeString(password);
-        output.writeString(path);
-        output.writeBoolean(delHost);
+        // delHost: v1 及以上格式才有，写在最后以便反序列化检测
+        output.writeBoolean(delHost != null && delHost);
     }
 
+    /**
+     * 反序列化：先由父类 StandardV2RayBean.deserialize 读完所有父类字段（包含 v4 的 host/path），
+     * 再读 username/password/delHost。
+     *
+     * 兼容性处理：
+     * - v0（最早的格式）：buffer 里 username 位置是 host，无 delHost。
+     *   readString() 读到 host 内容（而非真正的 username），delHost 保持初始值 false。
+     *   这是已知局限，v0 数据需要重新保存。
+     * - v1 及以上：username/password/delHost 均正确读取。
+     */
     @Override
     public void deserialize(ByteBufferInput input) {
         super.deserialize(input);
         username = input.readString();
         password = input.readString();
-        // path 和 delHost 在 version >= 2 的数据里才存在
-        // （version=1 只有 delHost，version=0 两者皆无）
-        // 这里直接读：旧版本数据 buffer 位置偏一个字节，path 尾字丢失，delHost 读默认值
-        // 业务可接受；后续数据格式正确后可删此 try
+        // delHost 存在于 v1+，v0 数据读到的是 buffer 尾随垃圾，抛异常被 catch 忽略
         try {
-            path = input.readString();
             delHost = input.readBoolean();
         } catch (Exception e) {
-            // version 0/1 数据走到这里，path 保持父类默认值，delHost 初始化为 false
-            if (delHost == null) delHost = false;
+            delHost = false;
         }
     }
 
