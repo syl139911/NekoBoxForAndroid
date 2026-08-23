@@ -55,14 +55,18 @@ class HttpSettingsActivity : StandardV2RaySettingsActivity() {
 
     override suspend fun saveAndExit() {
         val delHost = DataStore.configurationStore.getBoolean("delHost", false)
+        val path = DataStore.configurationStore.getString("path", "") ?: ""
         val editingId = DataStore.editingId
         if (editingId == 0L) {
             val bean = createEntity() as HttpBean
             bean.delHost = delHost
-            ProfileManager.createProfile(DataStore.editingGroup, bean.apply { serialize() })
+            bean.path = path
+            ProfileManager.createProfile(DataStore.editingGroup, bean)
         } else {
             val entity = proxyEntity ?: run { finish(); return }
-            (entity.requireBean() as HttpBean).delHost = delHost
+            val bean = entity.requireBean() as HttpBean
+            bean.delHost = delHost
+            bean.path = path
             ProfileManager.updateProfile(entity)
         }
         finish()

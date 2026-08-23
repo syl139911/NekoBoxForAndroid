@@ -54,5 +54,8 @@ public class HttpBean extends StandardV2RayBean {
     public static final Creator<HttpBean> CREATOR = new Creator<HttpBean>() {
         @NonNull @Override public HttpBean newInstance() { return new HttpBean(); }
         @Override public HttpBean[] newArray(int size) { return new HttpBean[size]; }
+        @Override public HttpBean createFromParcel(@NonNull android.os.Parcel parcel) {
+            return KryoConverters.deserialize(newInstance(), parcel.createByteArray());
+        }
     };
 }
