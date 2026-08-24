@@ -39,13 +39,17 @@ popd
 
 # 启用 go.mod 里的 replace，指向本地打过补丁的 sing
 # (kunbox-patch/ 下的补丁由 nekobox_http_patch.py 应用)
-# 注意 aed32ee 的 go.mod 该行为 "// replace ... => ../sing" (// 后有空格)，
-# 因此用 [[:space:]]* 兼容空格；解开失败则直接让构建失败
-before=$(grep -c '^replace github.com/sagernet/sing => ../sing' sing-box/go.mod || true)
-sed -i 's|^//[[:space:]]*replace github.com/sagernet/sing => \.\./sing|replace github.com/sagernet/sing => ../sing|' sing-box/go.mod
-after=$(grep -c '^replace github.com/sagernet/sing => ../sing' sing-box/go.mod || true)
-if [ "$after" -lt 1 ]; then echo "REPLACE UNCOMMENT FAILED (was $before) -> 无法指向本地补丁 sing"; exit 1; fi
-echo "go.mod replace 已解开 ✓ (指向本地 ../sing)"
+# aed32ee 的 go.mod 该行原为 "// replace github.com/sagernet/sing => ../sing" (// 后有空格)。
+# 关键坑：CI 中 get_source.sh 与真正的 gomobile 编译 cwd 嵌套层级不同，
+# 相对路径 "../sing" 在编译时解析不到被打补丁的 sing -> 仍用原版 -> unknown field DelHost。
+# 因此改成【绝对路径】，彻底消除 cwd 歧义。
+SING_ABS="$(pwd)/sing"
+if [ ! -f "$SING_ABS/go.mod" ]; then echo "SING NOT CLONED at $SING_ABS"; exit 1; fi
+sed -i "s|^//[[:space:]]*replace github.com/sagernet/sing => .*|replace github.com/sagernet/sing => $SING_ABS|" sing-box/go.mod
+sed -i "s|^replace github.com/sagernet/sing => .*|replace github.com/sagernet/sing => $SING_ABS|" sing-box/go.mod
+if ! grep -q "^replace github.com/sagernet/sing => $SING_ABS" sing-box/go.mod; then echo "REPLACE UNCOMMENT FAILED -> 无法指向本地补丁 sing"; exit 1; fi
+echo "go.mod replace 已解开 ✓ (绝对路径: $SING_ABS)"
+echo "  校验补丁 sing 的 Options 含 DelHost: $(grep -c 'DelHost' "$SING_ABS/protocol/http/client.go" 2>/dev/null || echo 0) 处"
 
 # 应用 del_host 补丁：sing-box 两处(option/simple.go + protocol/http/outbound.go) + sing 一处(protocol/http/client.go)
 [ -f "$NB4A_REPO/kunbox-patch/nekobox_http_patch.py" ] || { echo "PATCH SCRIPT MISSING at $NB4A_REPO/kunbox-patch/"; exit 1; }
