@@ -44,9 +44,7 @@ public class HttpBean extends StandardV2RayBean {
         // ⚠️ 必须在 super 之前设好 type="http"
         // 父类 initializeDefaultValues() 里：if (type == null) type = "tcp"
         // 如果先调 super，type 会被设为 "tcp"，本类的 null 检查永远不会触发
-        if (type == null || type.isBlank()) {
-            type = "http";
-        }
+        type = "http";  // 强制覆盖，不管原来是什么
         super.initializeDefaultValues();
 
         // 父类已处理 host/path 的 null 默认值（StandardV2RayBean.initializeDefaultValues）
@@ -61,7 +59,7 @@ public class HttpBean extends StandardV2RayBean {
      * 因为 type 已在 initializeDefaultValues 中固定为 "http"，
      * 父类 serialize 的 switch(type) 一定走 http 分支写入 host+path。
      */
-    @Override
+ @Override
     public void serialize(ByteBufferOutput output) {
         super.serialize(output);
         output.writeString(username);
@@ -73,7 +71,7 @@ public class HttpBean extends StandardV2RayBean {
      * 反序列化：先读父类（含 type/host/path），再读 username/password/delHost。
      * delHost 用 try-catch 兼容旧数据（无此字段时 readBoolean 返回 false）。
      */
-    @Override
+ @Override
     public void deserialize(ByteBufferInput input) {
         super.deserialize(input);
         username = input.readString();
