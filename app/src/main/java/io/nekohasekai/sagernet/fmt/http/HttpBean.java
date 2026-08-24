@@ -1,9 +1,12 @@
 package io.nekohasekai.sagernet.fmt.http;
 
 import androidx.annotation.NonNull;
+
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
+
 import org.jetbrains.annotations.NotNull;
+
 import io.nekohasekai.sagernet.fmt.KryoConverters;
 import io.nekohasekai.sagernet.fmt.Serializable;
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean;
@@ -11,15 +14,20 @@ import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean;
 /**
  * HTTP 代理 Bean。
  *
- * 序列化格式（v4，type 固定为 "http"，父类 StandardV2RayBean 在 http 分支写入 host+path，此处不重复）：
- *   [父类 StandardV2RayBean v4 序列化的全部内容，包含 serverAddress/serverPort/type="http"/host/path/security/TLS...]
- * * 然后追加：
- *   - username (String)
- *   - password (String)
- *   - delHost (boolean)
+ * 继承链：Serializable → AbstractBean → StandardV2RayBean → HttpBean
  *
- * 反序列化：先走父类 StandardV2RayBean.deserialize（读完 serverAddress/serverPort/type/host/path/...），
- *          再读 username/password/delHost。path 已在父类读完，此处不再重复读。
+ * 序列化格式（Kryo buffer）：
+ *   [父类 StandardV2RayBean 全部内容]
+ *     └─ 含 type/host/path/security 等，type="http" 时走 http 分支写入 host+path
+ *   [string username]
+ *   [string password]
+ *   [boolean delHost]          — KunBox 新增，v0 旧数据无此字段
+ *
+ * 兼容性：
+ *   - 新代码读旧数据：delHost 字段不存在时 readBoolean 返回 false（Kryo buffer 到尾部返回 0）
+ *   - 旧代码读新数据：尾部多出 1 字节 boolean 被忽略，不影响父类字段读取
+ *
+ * 注意：path 已在父类 StandardV2RayBean 中处理，本类不重复写入。
  */
 @SuppressWarnings("unchecked")
 public class HttpBean extends StandardV2RayBean {
@@ -30,10 +38,6 @@ public class HttpBean extends StandardV2RayBean {
 
     @Override
     public void initializeDefaultValues() {
-        // 必须在 super 之前设好，否则父类会把 type 默认为 "tcp"，
-        // 导致 serialize 时 switch(type) 走 tcp 分支不写 host/path，
-        // path 在序列化→反序列化过程中丢失，VPN 闪退。
-        if (type == null || type.isBlank()) type = "http";
         super.initializeDefaultValues();
         if (username == null) username = "";
         if (password == null) password = "";
@@ -41,35 +45,31 @@ public class HttpBean extends StandardV2RayBean {
     }
 
     /**
-     * 序列化：先由父类 StandardV2RayBean 写 v4 完整内容（含 type=http 时的 host+path），
-     * 再追加 username/password/delHost。
-     * 注意：path 不在此处重复写入（父类已处理）。
+     * 序列化：父类全部字段 → username → password → delHost。
+     * 不写本类版本号（保持与已有数据格式一致）。
+     * path/host 由父类在 type="http" 分支处理，此处不重复。
      */
     @Override
     public void serialize(ByteBufferOutput output) {
         super.serialize(output);
         output.writeString(username);
         output.writeString(password);
-        // delHost: v1 及以上格式才有，写在最后以便反序列化检测
         output.writeBoolean(delHost != null && delHost);
     }
 
     /**
-     * 反序列化：先由父类 StandardV2RayBean.deserialize 读完所有父类字段（包含 v4 的 host/path），
-     * 再读 username/password/delHost。
+     * 反序列化：父类全部字段 → username → password → delHost。
      *
-     * 兼容性处理：
-     * - v0（最早的格式）：buffer 里 username 位置是 host，无 delHost。
-     *   readString() 读到 host 内容（而非真正的 username），delHost 保持初始值 false。
-     *   这是已知局限，v0 数据需要重新保存。
-     * - v1 及以上：username/password/delHost 均正确读取。
+     * delHost 用 try-catch 兜底：
+     *   - 旧数据无 delHost → readBoolean 在 buffer 尾部返回 false，或抛异常被 catch 兜底
+     *   - 新数据有 delHost → 正常读取
+     * 这是向后兼容的标准做法，避免给格式加版本号导致旧代码无法读新数据。
      */
     @Override
     public void deserialize(ByteBufferInput input) {
         super.deserialize(input);
         username = input.readString();
         password = input.readString();
-        // delHost 存在于 v1+，v0 数据读到的是 buffer 尾随垃圾，抛异常被 catch 忽略
         try {
             delHost = input.readBoolean();
         } catch (Exception e) {
@@ -83,9 +83,15 @@ public class HttpBean extends StandardV2RayBean {
         return KryoConverters.deserialize(new HttpBean(), KryoConverters.serialize(this));
     }
 
+    /**
+     * CREATOR：使用基类 Serializable.Creator。
+     * 基类已实现 createFromParcel = KryoConverters.deserialize(newInstance(), bytes)，
+     * 子类只需实现 newInstance 和 newArray。
+     */
     public static final Serializable.Creator<HttpBean> CREATOR =
         new Serializable.Creator<HttpBean>() {
             @NonNull
+            @Override
             public HttpBean newInstance() {
                 return new HttpBean();
             }
@@ -93,11 +99,6 @@ public class HttpBean extends StandardV2RayBean {
             @Override
             public HttpBean[] newArray(int size) {
                 return new HttpBean[size];
-            }
-
-            @Override
-            public HttpBean createFromParcel(@NonNull android.os.Parcel parcel) {
-                return KryoConverters.deserialize(newInstance(), parcel.createByteArray());
             }
         };
 }
