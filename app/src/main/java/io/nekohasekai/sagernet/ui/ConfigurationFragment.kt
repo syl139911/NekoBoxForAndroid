@@ -32,7 +32,6 @@ import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.adapter.FragmentStateAdapter
-import androidx.viewpager2.adapter.FragmentViewHolder
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.tabs.TabLayout
@@ -1000,14 +999,6 @@ class ConfigurationFragment @JvmOverloads constructor(
 
         override fun containsItem(itemId: Long): Boolean {
             return groupList.any { it.id == itemId }
-        }
-
-        override fun onViewRecycled(holder: FragmentViewHolder) {
-            val fragment = holder.fragment
-            if (fragment is GroupFragment) {
-                groupFragments.remove(fragment.proxyGroup.id)
-            }
-            super.onViewRecycled(holder)
         }
 
         override suspend fun groupAdd(group: ProxyGroup) {
