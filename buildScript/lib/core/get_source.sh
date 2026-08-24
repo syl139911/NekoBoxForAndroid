@@ -4,6 +4,9 @@ set -e
 source "buildScript/init/env.sh"
 ENV_NB4A=1
 source "buildScript/lib/core/get_source_env.sh"
+# 记下仓库根目录：get_source.sh 后续会 pushd .. 到仓库父目录，
+# 而 kunbox-patch/ 在仓库内，必须用仓库根绝对路径引用补丁脚本
+NB4A_REPO="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/../../.." && pwd)"
 pushd ..
 
 ####
@@ -39,9 +42,11 @@ popd
 sed -i 's|^//replace github.com/sagernet/sing => ../sing|replace github.com/sagernet/sing => ../sing|' sing-box/go.mod
 
 # 应用 del_host 补丁：sing-box 两处(option/simple.go + protocol/http/outbound.go) + sing 一处(protocol/http/client.go)
-python3 kunbox-patch/nekobox_http_patch.py sing-box sing
+[ -f "$NB4A_REPO/kunbox-patch/nekobox_http_patch.py" ] || { echo "PATCH SCRIPT MISSING at $NB4A_REPO/kunbox-patch/"; exit 1; }
+python3 "$NB4A_REPO/kunbox-patch/nekobox_http_patch.py" sing-box sing
 
-# 补丁脚本只警告、不自动加 strings/fmt import，这里补上
+# 补丁脚本只警告、不自动修 import：补丁用 strings.Builder/fmt.Fprintf（需加 strings/fmt），
+# 且不再使用 net/url（不删会 imported and not used 编译失败）
 python3 - <<'PY'
 p = "sing/protocol/http/client.go"
 s = open(p).read(); ch = False
@@ -49,6 +54,8 @@ if '"strings"' not in s:
     s = s.replace('\t"context"\n', '\t"context"\n\t"strings"\n', 1); ch = True
 if '"fmt"' not in s:
     s = s.replace('\t"encoding/base64"\n', '\t"encoding/base64"\n\t"fmt"\n', 1); ch = True
+if 'net/url' in s:
+    s = s.replace('\t"net/url"\n', '', 1); ch = True
 open(p, 'w').write(s)
 print("sing client.go imports:", "updated" if ch else "ok")
 PY
