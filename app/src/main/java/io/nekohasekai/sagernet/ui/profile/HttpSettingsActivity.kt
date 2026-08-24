@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.ui.profile
 import android.os.Bundle
 import android.view.View
 import androidx.preference.Preference
+import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreference
 import io.nekohasekai.sagernet.R
