@@ -2,9 +2,7 @@ package io.nekohasekai.sagernet.ui.profile
 
 import android.os.Bundle
 import android.view.View
-import androidx.preference.EditTextPreference
 import androidx.preference.Preference
-import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreference
 import io.nekohasekai.sagernet.R
@@ -16,12 +14,15 @@ class HttpSettingsActivity : StandardV2RaySettingsActivity() {
 
     override fun createEntity() = HttpBean()
 
+    // 注册 delHost：PreferenceBinding 会自动从 profileCacheStore 读写布尔值，
+    // 并在 saveAndExit 时通过父类 serialize()（pbm.fromCacheAll）序列化进数据库。
     private val delHost = pbm.add(PreferenceBinding(Type.Bool, "delHost"))
 
     override fun PreferenceFragmentCompat.viewCreated(view: View, savedInstanceState: Bundle?) {
+        // 找到 serverPort 所在 category，追加 delHost SwitchPreference
         val cat = findPreference<Preference>("serverPort")?.parent as? PreferenceCategory ?: return
 
-        // 1. 动态创建 delHost（仅 HTTP 可见）
+        // 动态创建 delHost（仅 HTTP 可见，防止重复创建）
         if (findPreference<Preference>("delHost") == null) {
             SwitchPreference(requireContext()).apply {
                 key = "delHost"
@@ -30,24 +31,5 @@ class HttpSettingsActivity : StandardV2RaySettingsActivity() {
                 cat.addPreference(this)
             }
         }
-
-        // 2. 把 path 和 delHost 移到 serverPort 后面
-        val pathPref = findPreference<Preference>("path") ?: return
-        val delHostPref = findPreference<Preference>("delHost") ?: return
-        val portPref = findPreference<Preference>("serverPort") ?: return
-
-        // 暂存 path 和 delHost 后面的所有 preference
-        val prefs = cat.preferences.toMutableList()
-        val after = prefs.filter { it != pathPref && it != delHostPref && prefs.indexOf(it) > prefs.indexOf(portPref) }
-
-        // 移除 path、delHost、以及 serverPort 后面的所有项
-        cat.removePreference(pathPref)
-        cat.removePreference(delHostPref)
-        after.forEach { cat.removePreference(it) }
-
-        // 按正确顺序加回来：serverPort → path → delHost → 原来后面的项
-        cat.addPreference(pathPref)
-        cat.addPreference(delHostPref)
-        after.forEach { cat.addPreference(it) }
     }
 }
