@@ -2,7 +2,6 @@ package io.nekohasekai.sagernet.ui.profile
 
 import android.os.Bundle
 import android.view.View
-import androidx.preference.EditTextPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
@@ -16,12 +15,14 @@ class HttpSettingsActivity : StandardV2RaySettingsActivity() {
 
     override fun createEntity() = HttpBean()
 
+    // pbm.add() 只注册绑定到列表，不读写 preference
+    // 实际读（writeToCacheAll）在 init()，写（fromCacheAll）在 serialize()，都是 bean 就绪之后
     private val delHost = pbm.add(PreferenceBinding(Type.Bool, "delHost"))
 
     override fun PreferenceFragmentCompat.viewCreated(view: View, savedInstanceState: Bundle?) {
         val cat = findPreference<Preference>("serverPort")?.parent as? PreferenceCategory ?: return
 
-        // 1. 动态创建 delHost（仅 HTTP 可见）
+        // 1. 动态创建 delHost SwitchPreference（仅 HTTP 可见）
         if (findPreference<Preference>("delHost") == null) {
             SwitchPreference(requireContext()).apply {
                 key = "delHost"
@@ -31,23 +32,11 @@ class HttpSettingsActivity : StandardV2RaySettingsActivity() {
             }
         }
 
-        // 2. 把 path 和 delHost 移到 serverPort 后面
-        val pathPref = findPreference<Preference>("path") ?: return
-        val delHostPref = findPreference<Preference>("delHost") ?: return
-        val portPref = findPreference<Preference>("serverPort") ?: return
-
-        // 暂存 path 和 delHost 后面的所有 preference
-        val prefs = cat.preferences.toMutableList()
-        val after = prefs.filter { it != pathPref && it != delHostPref && prefs.indexOf(it) > prefs.indexOf(portPref) }
-
-        // 移除 path、delHost、以及 serverPort 后面的所有项
-        cat.removePreference(pathPref)
-        cat.removePreference(delHostPref)
-        after.forEach { cat.removePreference(it) }
-
-        // 按正确顺序加回来：serverPort → path → delHost → 原来后面的项
-        cat.addPreference(pathPref)
-        cat.addPreference(delHostPref)
-        after.forEach { cat.addPreference(it) }
+        // 2. 用 order 重排：serverPort → path → delHost → 其余
+        //    避免 removePreference + addPreference（可能丢失 listener / 焦点状态）
+        findPreference<Preference>("serverPort")?.order = 1
+        findPreference<Preference>("path")?.order = 2
+        findPreference<Preference>("delHost")?.order = 3
+        // 其余 preference 保持 XML 默认 order（1000+），不影响排序
     }
 }
