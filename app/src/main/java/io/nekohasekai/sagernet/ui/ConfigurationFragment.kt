@@ -1001,6 +1001,14 @@ class ConfigurationFragment @JvmOverloads constructor(
             return groupList.any { it.id == itemId }
         }
 
+        override fun onViewRecycled(holder: FragmentViewHolder) {
+            val fragment = holder.fragment
+            if (fragment is GroupFragment) {
+                groupFragments.remove(fragment.proxyGroup.id)
+            }
+            super.onViewRecycled(holder)
+        }
+
         override suspend fun groupAdd(group: ProxyGroup) {
             tabLayout.post {
                 groupList.add(group)
@@ -1136,9 +1144,12 @@ class ConfigurationFragment @JvmOverloads constructor(
         }
 
         fun switchLayoutMode() {
+            val scrollPos = (configurationListView.layoutManager as? LinearLayoutManager)
+                ?.findFirstVisibleItemPosition() ?: 0
             setupLayoutManager()
             configurationListView.layoutManager = layoutManager
             adapter?.notifyDataSetChanged()
+            configurationListView.scrollToPosition(scrollPos)
         }
 
         private fun setupLayoutManager() {
