@@ -39,7 +39,13 @@ popd
 
 # 启用 go.mod 里的 replace，指向本地打过补丁的 sing
 # (kunbox-patch/ 下的补丁由 nekobox_http_patch.py 应用)
-sed -i 's|^//replace github.com/sagernet/sing => ../sing|replace github.com/sagernet/sing => ../sing|' sing-box/go.mod
+# 注意 aed32ee 的 go.mod 该行为 "// replace ... => ../sing" (// 后有空格)，
+# 因此用 [[:space:]]* 兼容空格；解开失败则直接让构建失败
+before=$(grep -c '^replace github.com/sagernet/sing => ../sing' sing-box/go.mod || true)
+sed -i 's|^//[[:space:]]*replace github.com/sagernet/sing => \.\./sing|replace github.com/sagernet/sing => ../sing|' sing-box/go.mod
+after=$(grep -c '^replace github.com/sagernet/sing => ../sing' sing-box/go.mod || true)
+if [ "$after" -lt 1 ]; then echo "REPLACE UNCOMMENT FAILED (was $before) -> 无法指向本地补丁 sing"; exit 1; fi
+echo "go.mod replace 已解开 ✓ (指向本地 ../sing)"
 
 # 应用 del_host 补丁：sing-box 两处(option/simple.go + protocol/http/outbound.go) + sing 一处(protocol/http/client.go)
 [ -f "$NB4A_REPO/kunbox-patch/nekobox_http_patch.py" ] || { echo "PATCH SCRIPT MISSING at $NB4A_REPO/kunbox-patch/"; exit 1; }
