@@ -75,6 +75,15 @@ grep -q "DelHost" sing-box/option/simple.go || { echo "PATCH FAILED: simple.go �
 grep -q "raw TCP CONNECT" sing/protocol/http/client.go || { echo "PATCH FAILED: client.go 未替换 DialContext"; exit 1; }
 echo "del_host 补丁已应用 ✓"
 
+# 修改 libcore/go.mod 的 replace sing 为绝对路径（gomobile 会在 .build/src-android-* 里 copy，相对路径会错）
+LIBCORE_MOD="$NB4A_REPO/libcore/go.mod"
+if [ -f "$LIBCORE_MOD" ]; then
+  sed -i "s|^replace github.com/sagernet/sing => .*|replace github.com/sagernet/sing => $SING_ABS|" "$LIBCORE_MOD"
+  echo "libcore/go.mod replace sing => $SING_ABS ✓"
+else
+  echo "libcore/go.mod not found at $LIBCORE_MOD"
+fi
+
 ####
 
 popd
