@@ -59,7 +59,7 @@ public class HttpBean extends StandardV2RayBean {
      * 因为 type 已在 initializeDefaultValues 中固定为 "http"，
      * 父类 serialize 的 switch(type) 一定走 http 分支写入 host+path。
      */
- @Override
+    @Override
     public void serialize(ByteBufferOutput output) {
         super.serialize(output);
         output.writeString(username);
@@ -71,7 +71,7 @@ public class HttpBean extends StandardV2RayBean {
      * 反序列化：先读父类（含 type/host/path），再读 username/password/delHost。
      * delHost 用 try-catch 兼容旧数据（无此字段时 readBoolean 返回 false）。
      */
- @Override
+    @Override
     public void deserialize(ByteBufferInput input) {
         super.deserialize(input);
         username = input.readString();
