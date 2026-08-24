@@ -25,8 +25,8 @@ class HttpSettingsActivity : StandardV2RaySettingsActivity() {
         if (findPreference<Preference>("delHost") == null) {
             SwitchPreference(requireContext()).apply {
                 key = "delHost"
-                title = "Del Host"
-                summary = "CONNECT 请求不发送 Host header"
+                title = getString(R.string.del_host)
+                summary = getString(R.string.del_host_sum)
                 cat.addPreference(this)
             }
         }
