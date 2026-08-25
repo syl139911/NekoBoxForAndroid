@@ -32,11 +32,23 @@ class HttpSettingsActivity : StandardV2RaySettingsActivity() {
             }
         }
 
-        // 2. 用 order 重排：serverPort → path → delHost → 其余
-        //    避免 removePreference + addPreference（可能丢失 listener / 焦点状态）
-        findPreference<Preference>("serverPort")?.order = 1
-        findPreference<Preference>("path")?.order = 2
-        findPreference<Preference>("delHost")?.order = 3
-        // 其余 preference 保持 XML 默认 order（1000+），不影响排序
+        // 2. 用 order 重排所有 preference
+        //    Android DEFAULT_ORDER = 1000，必须给所有 preference 设明确值才能控制顺序
+        //    目标：name → serverAddress → serverPort → path → delHost → username → password → ...
+        var order = 0
+        findPreference<Preference>("name")?.order = order++
+        findPreference<Preference>("serverAddress")?.order = order++
+        findPreference<Preference>("serverPort")?.order = order++
+        findPreference<Preference>("path")?.order = order++        // 紧跟 serverPort
+        findPreference<Preference>("delHost")?.order = order++      // 紧跟 path
+        findPreference<Preference>("username")?.order = order++
+        findPreference<Preference>("password")?.order = order++
+        findPreference<Preference>("uuid")?.order = order++
+        findPreference<Preference>("alterId")?.order = order++
+        findPreference<Preference>("encryption")?.order = order++
+        findPreference<Preference>("packetEncoding")?.order = order++
+        findPreference<Preference>("type")?.order = order++
+        findPreference<Preference>("host")?.order = order++
+        findPreference<Preference>("security")?.order = order++
     }
 }
