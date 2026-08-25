@@ -15,8 +15,6 @@ class HttpSettingsActivity : StandardV2RaySettingsActivity() {
 
     override fun createEntity() = HttpBean()
 
-    // pbm.add() 只注册绑定到列表，不读写 preference
-    // 实际读（writeToCacheAll）在 init()，写（fromCacheAll）在 serialize()，都是 bean 就绪之后
     private val delHost = pbm.add(PreferenceBinding(Type.Bool, "delHost"))
 
     override fun PreferenceFragmentCompat.viewCreated(view: View, savedInstanceState: Bundle?) {
@@ -32,15 +30,19 @@ class HttpSettingsActivity : StandardV2RaySettingsActivity() {
             }
         }
 
-        // 2. 用 order 重排所有 preference
-        //    Android DEFAULT_ORDER = 1000，必须给所有 preference 设明确值才能控制顺序
-        //    目标：name → serverAddress → serverPort → path → delHost → username → password → ...
+        // 2. 隐藏 host（KunBox 不需要）
+        findPreference<Preference>("host")?.isVisible = false
+
+        // 3. 修正 path 标题
+        findPreference<Preference>("path")?.title = "path"
+
+        // 4. 用 order 重排所有 preference
         var order = 0
         findPreference<Preference>("name")?.order = order++
         findPreference<Preference>("serverAddress")?.order = order++
         findPreference<Preference>("serverPort")?.order = order++
-        findPreference<Preference>("path")?.order = order++        // 紧跟 serverPort
-        findPreference<Preference>("delHost")?.order = order++      // 紧跟 path
+        findPreference<Preference>("path")?.order = order++
+        findPreference<Preference>("delHost")?.order = order++
         findPreference<Preference>("username")?.order = order++
         findPreference<Preference>("password")?.order = order++
         findPreference<Preference>("uuid")?.order = order++
@@ -48,7 +50,6 @@ class HttpSettingsActivity : StandardV2RaySettingsActivity() {
         findPreference<Preference>("encryption")?.order = order++
         findPreference<Preference>("packetEncoding")?.order = order++
         findPreference<Preference>("type")?.order = order++
-        findPreference<Preference>("host")?.order = order++
         findPreference<Preference>("security")?.order = order++
     }
 }
