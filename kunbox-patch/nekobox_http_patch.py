@@ -355,6 +355,12 @@ def patch_client():
         if import_line not in content:
             content = ensure_import(content, pkg, import_line)
 
+    # --- 3f. 清理不再使用的 import（补丁替换 DialContext 后 net/url 可能不再使用）---
+    if 'url.URL' not in content and 'url.' not in content.replace('net/url', ''):
+        if '"net/url"' in content:
+            content = re.sub(r'\t"net/url"\n', '', content)
+            print("  - 移除未使用的 net/url import")
+
     write_file(CLIENT_PATH, content)
     return True
 
