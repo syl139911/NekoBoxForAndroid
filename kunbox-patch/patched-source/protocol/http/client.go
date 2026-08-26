@@ -86,9 +86,22 @@ type Options struct {
 
 // stderrLogger: fallback when no logger is provided (avoids nil panic)
 type stderrLogger struct{}
-func (l stderrLogger) InfoContext(ctx context.Context, msg ...any)  { fmt.Fprintln(os.Stderr, msg...) }
-func (l stderrLogger) ErrorContext(ctx context.Context, msg ...any) { fmt.Fprintln(os.Stderr, msg...) }
-func (l stderrLogger) WarnContext(ctx context.Context, msg ...any)  { fmt.Fprintln(os.Stderr, msg...) }
+// Logger interface
+func (l stderrLogger) Trace(args ...any) {}
+func (l stderrLogger) Debug(args ...any) {}
+func (l stderrLogger) Info(args ...any)  { fmt.Fprintln(os.Stderr, args...) }
+func (l stderrLogger) Warn(args ...any)  { fmt.Fprintln(os.Stderr, args...) }
+func (l stderrLogger) Error(args ...any) { fmt.Fprintln(os.Stderr, args...) }
+func (l stderrLogger) Fatal(args ...any) { fmt.Fprintln(os.Stderr, args...) }
+func (l stderrLogger) Panic(args ...any) { fmt.Fprintln(os.Stderr, args...) }
+// ContextLogger interface
+func (l stderrLogger) TraceContext(ctx context.Context, args ...any) {}
+func (l stderrLogger) DebugContext(ctx context.Context, args ...any) {}
+func (l stderrLogger) InfoContext(ctx context.Context, args ...any)  { fmt.Fprintln(os.Stderr, args...) }
+func (l stderrLogger) WarnContext(ctx context.Context, args ...any)  { fmt.Fprintln(os.Stderr, args...) }
+func (l stderrLogger) ErrorContext(ctx context.Context, args ...any) { fmt.Fprintln(os.Stderr, args...) }
+func (l stderrLogger) FatalContext(ctx context.Context, args ...any) { fmt.Fprintln(os.Stderr, args...) }
+func (l stderrLogger) PanicContext(ctx context.Context, args ...any) { fmt.Fprintln(os.Stderr, args...) }
 
 func NewClient(options Options) *Client {
 	client := &Client{
