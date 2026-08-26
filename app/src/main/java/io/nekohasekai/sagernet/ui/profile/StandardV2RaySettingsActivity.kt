@@ -2,6 +2,7 @@ package io.nekohasekai.sagernet.ui.profile
 
 import android.os.Bundle
 import androidx.preference.EditTextPreference
+import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.Key
@@ -32,6 +33,10 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
     private val type = pbm.add(PreferenceBinding(Type.Text, "type"))
     private val host = pbm.add(PreferenceBinding(Type.Text, "host"))
     private val path = pbm.add(PreferenceBinding(Type.Text, "path"))
+    // pathHttp: 与 path 绑定同一个 bean 字段，但 cacheName 不同（XML key 不同）
+    private val pathHttp = pbm.add(PreferenceBinding(Type.Text, "path")).apply {
+        cacheName = "pathHttp"
+    }
     private val packetEncoding = pbm.add(PreferenceBinding(Type.TextToInt, "packetEncoding"))
     private val wsMaxEarlyData = pbm.add(PreferenceBinding(Type.TextToInt, "wsMaxEarlyData"))
     private val earlyDataHeaderName = pbm.add(PreferenceBinding(Type.Text, "earlyDataHeaderName"))
@@ -107,6 +112,9 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
         encryption.preference.isVisible = isVmess || isVless
         username.preference.isVisible = isHttp
         password.preference.isVisible = isHttp
+        // pathHttp 和 delHost 默认隐藏，由 updateView 按类型控制
+        pathHttp.preference.isVisible = false
+        findPreference<Preference>("delHost")?.isVisible = false
 
         if (tmpBean is TrojanBean) {
             uuid.preference.title = resources.getString(R.string.password)
@@ -149,7 +157,12 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
     private fun updateView(network: String) {
         host.preference.isVisible = false
         path.preference.isVisible = false
+        pathHttp.preference.isVisible = false
         wsCategory.isVisible = false
+
+        // 重置 disable
+        path.disable = false
+        pathHttp.disable = false
 
         when (network) {
             "tcp" -> {
@@ -158,13 +171,15 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
             }
 
             "http" -> {
-                host.preference.setTitle(R.string.http_host)
-                path.preference.setTitle(R.string.http_path)
-                host.preference.isVisible = true
-                path.preference.isVisible = true
+                // HTTP: 用 pathHttp（已排在 serverPort 后面），禁用原 path
+                path.disable = true
+                pathHttp.preference.isVisible = true
+                findPreference<Preference>("delHost")?.isVisible = true
             }
 
             "ws" -> {
+                // ws: 用原 path（在 host 后面），禁用 pathHttp
+                pathHttp.disable = true
                 host.preference.setTitle(R.string.ws_host)
                 path.preference.setTitle(R.string.ws_path)
                 host.preference.isVisible = true
@@ -173,11 +188,13 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
             }
 
             "grpc" -> {
+                pathHttp.disable = true
                 path.preference.setTitle(R.string.grpc_service_name)
                 path.preference.isVisible = true
             }
 
             "httpupgrade" -> {
+                pathHttp.disable = true
                 host.preference.setTitle(R.string.http_upgrade_host)
                 path.preference.setTitle(R.string.http_upgrade_path)
                 host.preference.isVisible = true
