@@ -158,6 +158,7 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
         host.preference.isVisible = false
         path.preference.isVisible = false
         pathHttp.preference.isVisible = false
+        findPreference<Preference>("delHost")?.isVisible = false
         wsCategory.isVisible = false
 
         // 重置 disable
