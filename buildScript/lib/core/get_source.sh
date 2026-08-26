@@ -51,28 +51,19 @@ if ! grep -q "^replace github.com/sagernet/sing => $SING_ABS" sing-box/go.mod; t
 echo "go.mod replace 已解开 ✓ (绝对路径: $SING_ABS)"
 echo "  校验补丁 sing 的 Options 含 DelHost: $(grep -c 'DelHost' "$SING_ABS/protocol/http/client.go" 2>/dev/null || echo 0) 处"
 
-# 应用 del_host 补丁：sing-box 两处(option/simple.go + protocol/http/outbound.go) + sing 一处(protocol/http/client.go)
-[ -f "$NB4A_REPO/kunbox-patch/nekobox_http_patch.py" ] || { echo "PATCH SCRIPT MISSING at $NB4A_REPO/kunbox-patch/"; exit 1; }
-python3 "$NB4A_REPO/kunbox-patch/nekobox_http_patch.py" sing-box sing
+# 应用 del_host 补丁：直接复制 lightmirror 验证过的补丁后源码（避免正则锚点匹配失败）
+PATCHED="$NB4A_REPO/kunbox-patch/patched-source"
+[ -f "$PATCHED/option/simple.go" ] || { echo "PATCHED SOURCE MISSING: $PATCHED/option/simple.go"; exit 1; }
+[ -f "$PATCHED/protocol/http/outbound.go" ] || { echo "PATCHED SOURCE MISSING: $PATCHED/protocol/http/outbound.go"; exit 1; }
+[ -f "$PATCHED/protocol/http/client.go" ] || { echo "PATCHED SOURCE MISSING: $PATCHED/protocol/http/client.go"; exit 1; }
+cp "$PATCHED/option/simple.go" sing-box/option/simple.go
+cp "$PATCHED/protocol/http/outbound.go" sing-box/protocol/http/outbound.go
+cp "$PATCHED/protocol/http/client.go" sing/protocol/http/client.go
+echo "补丁文件已复制 ✓"
 
-# 补丁脚本只警告、不自动修 import：补丁用 strings.Builder/fmt.Fprintf（需加 strings/fmt），
-# 且不再使用 net/url（不删会 imported and not used 编译失败）
-python3 - <<'PY'
-p = "sing/protocol/http/client.go"
-s = open(p).read(); ch = False
-if '"strings"' not in s:
-    s = s.replace('\t"context"\n', '\t"context"\n\t"strings"\n', 1); ch = True
-if '"fmt"' not in s:
-    s = s.replace('\t"encoding/base64"\n', '\t"encoding/base64"\n\t"fmt"\n', 1); ch = True
-if 'net/url' in s:
-    s = s.replace('\t"net/url"\n', '', 1); ch = True
-open(p, 'w').write(s)
-print("sing client.go imports:", "updated" if ch else "ok")
-PY
-
-# 校验补丁确实生效，否则让构建失败（脚本自身不返回非零）
-grep -q "DelHost" sing-box/option/simple.go || { echo "PATCH FAILED: simple.go 未注入 DelHost"; exit 1; }
-grep -q "raw TCP CONNECT" sing/protocol/http/client.go || { echo "PATCH FAILED: client.go 未替换 DialContext"; exit 1; }
+# 校验补丁确实生效
+grep -q "DelHost" sing-box/option/simple.go || { echo "PATCH FAILED: simple.go 未包含 DelHost"; exit 1; }
+grep -q "delHost" sing/protocol/http/client.go || { echo "PATCH FAILED: client.go 未包含 delHost"; exit 1; }
 echo "del_host 补丁已应用 ✓"
 
 # 修改 libcore/go.mod 的 replace sing 为绝对路径（gomobile 会在 .build/src-android-* 里 copy，相对路径会错）
