@@ -57,6 +57,9 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
     private val muxType = pbm.add(PreferenceBinding(Type.TextToInt, "muxType"))
     private val muxConcurrency = pbm.add(PreferenceBinding(Type.TextToInt, "muxConcurrency"))
 
+    // delHost: 在父类中声明，供 updateView() 使用
+    private val delHost = pbm.add(PreferenceBinding(Type.Bool, "delHost"))
+
     override fun StandardV2RayBean.init() {
         if (this is TrojanBean) {
             this@StandardV2RaySettingsActivity.uuid.fieldName = "password"
@@ -114,7 +117,7 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
         password.preference.isVisible = isHttp
         // pathHttp 和 delHost 默认隐藏，由 updateView 按类型控制
         pathHttp.preference.isVisible = false
-        findPreference<Preference>("delHost")?.isVisible = false
+        delHost.preference.isVisible = false
 
         if (tmpBean is TrojanBean) {
             uuid.preference.title = resources.getString(R.string.password)
@@ -158,7 +161,7 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
         host.preference.isVisible = false
         path.preference.isVisible = false
         pathHttp.preference.isVisible = false
-        findPreference<Preference>("delHost")?.isVisible = false
+        delHost.preference.isVisible = false
         wsCategory.isVisible = false
 
         // 重置 disable
@@ -175,7 +178,7 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
                 // HTTP: 用 pathHttp（已排在 serverPort 后面），禁用原 path
                 path.disable = true
                 pathHttp.preference.isVisible = true
-                findPreference<Preference>("delHost")?.isVisible = true
+                delHost.preference.isVisible = true
             }
 
             "ws" -> {
