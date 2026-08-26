@@ -18,6 +18,17 @@
             app:key="serverPort"
             app:title="@string/server_port"
             app:useSimpleSummaryProvider="true" />
+        <!-- pathHttp: HTTP 专用，紧跟 serverPort -->
+        <EditTextPreference
+            app:icon="@drawable/ic_baseline_format_align_left_24"
+            app:key="pathHttp"
+            app:title="path"
+            app:useSimpleSummaryProvider="true" />
+        <!-- delHost: HTTP 专用 -->
+        <SwitchPreference
+            app:key="delHost"
+            app:title="@string/del_host"
+            app:summary="@string/del_host_sum" />
         <EditTextPreference
             app:icon="@drawable/ic_baseline_person_24"
             app:key="username"
@@ -64,6 +75,7 @@
             app:key="host"
             app:title="@string/http_host"
             app:useSimpleSummaryProvider="true" />
+        <!-- path: ws/httpupgrade/grpc 用，保持原位 -->
         <EditTextPreference
             app:icon="@drawable/ic_baseline_format_align_left_24"
             app:key="path"
