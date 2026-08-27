@@ -17,7 +17,7 @@ import io.nekohasekai.sagernet.databinding.LayoutLogcatBinding
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.widget.ListListener
 import libcore.Libcore
-import moe.matsuri.nb4a.utils.GoCoreLogReader
+import moe.matsuri.nb4a.utils.GoCoreLogInterceptor
 import moe.matsuri.nb4a.utils.SendLog
 
 class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
@@ -25,7 +25,7 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
 
     lateinit var binding: LayoutLogcatBinding
 
-    // true = Go 核心日志 (logcat), false = neko.log
+    // true = Go 核心日志 (实时拦截), false = neko.log
     private var showGoCoreLog = true
 
     @SuppressLint("RestrictedApi", "WrongConstant")
@@ -44,6 +44,11 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.root, ListListener)
 
+        // 确保拦截器在运行
+        if (!GoCoreLogInterceptor.isRunning()) {
+            GoCoreLogInterceptor.start(requireContext())
+        }
+
         reloadSession()
     }
 
@@ -59,11 +64,9 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
             line.contains("WARN[") || line.contains(" [Warning]") || line.contains("W ") -> {
                 color = ForegroundColorSpan(Color.YELLOW)
             }
-            // HTTP CONNECT 相关高亮
-            line.contains("HTTP CONNECT") -> {
+            line.contains("HTTP CONNECT") || line.contains("KunBox-HTTP") -> {
                 color = ForegroundColorSpan((0xFF00BFFF).toInt()) // 深天蓝
             }
-            // DNS 相关高亮
             line.contains("dns", ignoreCase = true) || line.contains("resolve", ignoreCase = true) || line.contains("lookup", ignoreCase = true) -> {
                 color = ForegroundColorSpan((0xFFFFA500).toInt()) // 橙色
             }
@@ -76,7 +79,7 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
 
     private fun reloadSession() {
         val text = if (showGoCoreLog) {
-            GoCoreLogReader.readRecentLogs(300)
+            GoCoreLogInterceptor.getRecentLogs(300)
         } else {
             String(SendLog.getNekoLog(50 * 1024))
         }
@@ -103,6 +106,7 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
                 runOnDefaultDispatcher {
                     try {
                         Libcore.nekoLogClear()
+                        GoCoreLogInterceptor.clearLogs()
                         Runtime.getRuntime().exec("/system/bin/logcat -c")
                     } catch (e: Exception) {
                         onMainDispatcher {
