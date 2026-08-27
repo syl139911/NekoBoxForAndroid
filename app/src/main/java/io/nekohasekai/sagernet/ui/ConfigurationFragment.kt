@@ -1685,6 +1685,11 @@ class ConfigurationFragment @JvmOverloads constructor(
                     shareLayout.isGone = true
                 }
 
+                // 双列模式下隐藏 share 按钮，给节点名腾空间
+                if (DataStore.groupLayoutMode == 1) {
+                    shareLayout.isGone = true
+                }
+
                 runOnDefaultDispatcher {
                     val selected = (selectedItem?.id ?: DataStore.selectedProxy) == proxyEntity.id
                     val started =
