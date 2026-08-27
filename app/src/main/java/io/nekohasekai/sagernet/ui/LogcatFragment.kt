@@ -9,7 +9,6 @@ import android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
 import android.text.style.ForegroundColorSpan
 import android.view.MenuItem
 import android.view.View
-import android.view.ViewGroup
 import androidx.appcompat.widget.Toolbar
 import androidx.core.view.ViewCompat
 import androidx.core.view.doOnLayout
@@ -18,12 +17,16 @@ import io.nekohasekai.sagernet.databinding.LayoutLogcatBinding
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.widget.ListListener
 import libcore.Libcore
+import moe.matsuri.nb4a.utils.GoCoreLogInterceptor
 import moe.matsuri.nb4a.utils.SendLog
 
 class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
     Toolbar.OnMenuItemClickListener {
 
     lateinit var binding: LayoutLogcatBinding
+
+    // true = Go 核心日志 (实时拦截), false = neko.log
+    private var showGoCoreLog = true
 
     @SuppressLint("RestrictedApi", "WrongConstant")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -41,21 +44,33 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.root, ListListener)
 
+        // 确保拦截器在运行
+        if (!GoCoreLogInterceptor.isRunning()) {
+            GoCoreLogInterceptor.start(requireContext())
+        }
+
         reloadSession()
     }
 
     private fun getColorForLine(line: String): ForegroundColorSpan {
         var color = ForegroundColorSpan(Color.GRAY)
         when {
-            line.contains("INFO[") || line.contains(" [Info]") -> {
+            line.contains("INFO[") || line.contains(" [Info]") || line.contains("I ") -> {
                 color = ForegroundColorSpan((0xFF86C166).toInt())
             }
-
-            line.contains("ERROR[") || line.contains(" [Error]") -> {
+            line.contains("ERROR[") || line.contains(" [Error]") || line.contains("E ") -> {
                 color = ForegroundColorSpan(Color.RED)
             }
-
-            line.contains("WARN[") || line.contains(" [Warning]") -> {
+            line.contains("WARN[") || line.contains(" [Warning]") || line.contains("W ") -> {
+                color = ForegroundColorSpan(Color.YELLOW)
+            }
+            line.contains("HTTP CONNECT") || line.contains("KunBox-HTTP") -> {
+                color = ForegroundColorSpan((0xFF00BFFF).toInt()) // 深天蓝
+            }
+            line.contains("dns", ignoreCase = true) || line.contains("resolve", ignoreCase = true) || line.contains("lookup", ignoreCase = true) -> {
+                color = ForegroundColorSpan((0xFFFFA500).toInt()) // 橙色
+            }
+            line.contains("FAILED") || line.contains("failed") -> {
                 color = ForegroundColorSpan(Color.RED)
             }
         }
@@ -63,9 +78,13 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
     }
 
     private fun reloadSession() {
-        val span = SpannableString(
+        val text = if (showGoCoreLog) {
+            GoCoreLogInterceptor.getRecentLogs(300)
+        } else {
             String(SendLog.getNekoLog(50 * 1024))
-        )
+        }
+
+        val span = SpannableString(text)
         var offset = 0
         for (line in span.lines()) {
             val color = getColorForLine(line)
@@ -76,7 +95,6 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
         }
         binding.textview.text = span
         binding.textview.clearFocus()
-        // 等 textview 完成最终 layout 再滚动到底部
         binding.textview.doOnLayout {
             binding.scroolview.scrollTo(0, binding.textview.height)
         }
@@ -88,6 +106,7 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
                 runOnDefaultDispatcher {
                     try {
                         Libcore.nekoLogClear()
+                        GoCoreLogInterceptor.clearLogs()
                         Runtime.getRuntime().exec("/system/bin/logcat -c")
                     } catch (e: Exception) {
                         onMainDispatcher {
@@ -99,7 +118,6 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
                         binding.textview.text = ""
                     }
                 }
-
             }
 
             R.id.action_send_logcat -> {
@@ -112,8 +130,14 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
             R.id.action_refresh -> {
                 reloadSession()
             }
+
+            R.id.action_toggle_log_source -> {
+                showGoCoreLog = !showGoCoreLog
+                toolbar.menu.findItem(R.id.action_toggle_log_source)?.title =
+                    if (showGoCoreLog) "NekoLog" else "Go Core"
+                reloadSession()
+            }
         }
         return true
     }
-
 }

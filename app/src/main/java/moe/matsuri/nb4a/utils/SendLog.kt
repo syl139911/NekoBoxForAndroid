@@ -23,17 +23,40 @@ object SendLog {
             ".log",
             File(app.cacheDir, "log").also { it.mkdirs() })
 
-        var report = CrashHandler.buildReportHeader()
+        val sb = StringBuilder()
 
-        report += "Logcat: \n\n"
+        // Header
+        sb.append(CrashHandler.buildReportHeader())
+        sb.appendLine("\n")
 
-        logFile.writeText(report)
+        // GoCoreLogInterceptor 缓冲区（过滤后的关键日志）
+        sb.appendLine("=== Go Core Logs (Filtered) ===")
+        sb.appendLine(GoCoreLogInterceptor.getRecentLogs(500))
+        sb.appendLine()
+
+        // kunbox_debug.log 文件（如果存在）
+        val debugLog = GoCoreLogInterceptor.getLogFilePath()?.let { File(it) }
+        if (debugLog != null && debugLog.exists() && debugLog.length() > 0) {
+            sb.appendLine("=== KunBox Debug Log ===")
+            try {
+                val len = debugLog.length()
+                val stream = FileInputStream(debugLog)
+                // 最多读 200KB
+                if (len > 200 * 1024) stream.skip(len - 200 * 1024)
+                sb.append(String(stream.use { it.readBytes() }))
+            } catch (e: Exception) {
+                sb.appendLine("Read error: ${e.message}")
+            }
+            sb.appendLine()
+        }
+
+        // 全量 logcat（放在最后，可能很大）
+        sb.appendLine("=== Full Logcat ===")
+        logFile.writeText(sb.toString())
 
         try {
             Runtime.getRuntime().exec(arrayOf("logcat", "-d")).inputStream.use(
-                FileOutputStream(
-                    logFile, true
-                )
+                FileOutputStream(logFile, true)
             )
             logFile.appendText("\n")
         } catch (e: IOException) {
@@ -41,7 +64,8 @@ object SendLog {
             logFile.appendText("Export logcat error: " + CrashHandler.formatThrowable(e))
         }
 
-        logFile.appendText("\n")
+        // neko.log
+        logFile.appendText("\n=== NekoLog ===\n")
         logFile.appendBytes(getNekoLog(0))
 
         context.startActivity(
