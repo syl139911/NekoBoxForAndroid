@@ -138,6 +138,21 @@ def patch_outbound():
     content = content[:insert_pos] + '\n' + field_line + content[insert_pos:]
     print("  + DelHost 传递")
 
+    # --- outbound 日志: 替换为带 delHost/path 的详细版本 ---
+    # 原始(原生):  h.logger.InfoContext(ctx, "outbound connection to ", destination)
+    # 新版(补丁):  输出 server/delHost/path 配置快照，便于验证配置是否生效
+    old_log = 'h.logger.InfoContext(ctx, "outbound connection to ", destination)'
+    new_log = (
+        'h.logger.InfoContext(ctx, "[KunBox-HTTP] outbound dial ", network, '
+        '" -> server=", h.client.ServerAddr(), '
+        '" delHost=", h.client.DelHost(), " path=", h.client.Path())'
+    )
+    if old_log in content and '[KunBox-HTTP]' not in content:
+        content = content.replace(old_log, new_log, 1)
+        print("  + outbound 日志(含 delHost/path 快照)")
+    else:
+        print("  ~ outbound 日志已替换或未找到原生锚点")
+
     write_file(OUTBOUND_PATH, content)
     return True
 
@@ -164,6 +179,21 @@ def patch_client():
             print("  + Client.delHost 字段")
         else:
             print("  ⚠️  找不到 host 字段，跳过 struct 注入")
+
+    # --- 3a2. Client 加 getter 方法（供 outbound 日志读取配置） ---
+    if 'func (c *Client) DelHost()' not in content:
+        getter_block = (
+            '\nfunc (c *Client) DelHost() bool    { return c.delHost }\n'
+            'func (c *Client) Path() string     { return c.path }\n'
+            'func (c *Client) ServerAddr() string { return c.serverAddr.String() }\n'
+        )
+        # 在 DialContext 方法定义前插入 getter
+        dial_start = re.search(r'func \(c \*Client\) DialContext\(', content)
+        if dial_start:
+            content = content[:dial_start.start()] + getter_block + content[dial_start.start():]
+            print("  + Client getters (DelHost/Path/ServerAddr)")
+        else:
+            print("  ⚠️  找不到 DialContext，跳过 getter 注入")
 
     # --- 3b. Options struct 加 DelHost 字段 ---
     if 'DelHost' not in content or 'DelHost\tbool' not in content:
@@ -308,11 +338,13 @@ def patch_client():
 \tfmt.Fprintf(os.Stderr, "[KunBox-HTTP] proxy status line: %q\\n", statusLine)
 
 \t// 读取 response headers
+\tvar respHeaders strings.Builder
 \tfor {
 \t\tline, readErr := reader.ReadString('\\n')
 \t\tif line == "\\r\\n" || line == "\\n" || readErr != nil {
 \t\t\tbreak
 \t\t}
+\t\trespHeaders.WriteString(line)
 \t}
 
 \t// 检查状态码是否为 200
@@ -328,8 +360,14 @@ def patch_client():
 \t\t}
 \t}
 \tif !hasValidStatus {
+\t\tif respHeaders.Len() > 0 {
+\t\t\tfmt.Fprintf(os.Stderr, "[KunBox-HTTP] proxy response headers:\\n%s", respHeaders.String())
+\t\t}
 \t\tconn.Close()
 \t\treturn nil, E.New("connect failed: ", statusLine)
+\t}
+\tif respHeaders.Len() > 0 {
+\t\tfmt.Fprintf(os.Stderr, "[KunBox-HTTP] proxy response headers:\\n%s", respHeaders.String())
 \t}
 
 \t// 连接建立成功
@@ -337,6 +375,7 @@ def patch_client():
 \t\tbuffer := buf.NewSize(reader.Buffered())
 \t\t_, err = buffer.ReadFullFrom(reader, buffer.FreeLen())
 \t\tif err != nil {
+\t\t\tfmt.Fprintf(os.Stderr, "[KunBox-HTTP] ReadFullFrom FAILED: err=%v\\n", err)
 \t\t\tconn.Close()
 \t\t\treturn nil, err
 \t\t}
