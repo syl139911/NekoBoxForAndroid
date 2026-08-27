@@ -120,6 +120,7 @@ object GoCoreLogInterceptor {
 
     // ========== 生命周期 ==========
     @Volatile private var process: Process? = null
+    @Volatile private var process2: Process? = null  // 第二个logcat进程
     @Volatile private var readerThread: Thread? = null
     @Volatile private var running = false
 
@@ -139,10 +140,7 @@ object GoCoreLogInterceptor {
             Log.i(TAG, "Go core log interceptor started")
             try {
                 val pid = android.os.Process.myPid()
-                // 🆕 延迟启动，等待 Go 进程完全初始化
-                Thread.sleep(2000)
-                
-                // 🆕 双重策略：当前进程 + 所有进程
+                // 双重策略：当前进程 + 所有进程
                 val proc1 = Runtime.getRuntime().exec(arrayOf(
                     "logcat", "--pid=$pid", "-T", "0", "-v", "threadtime", "*:V"
                 ))
@@ -150,6 +148,7 @@ object GoCoreLogInterceptor {
                     "logcat", "-T", "0", "-v", "threadtime", "*:V"
                 ))
                 process = proc1
+                this@GoCoreLogInterceptor.process2 = proc2  // 保存引用以便销毁
 
                 val reader1 = BufferedReader(InputStreamReader(proc1.inputStream))
                 val reader2 = BufferedReader(InputStreamReader(proc2.inputStream))
@@ -178,7 +177,9 @@ object GoCoreLogInterceptor {
         running = false
         writeToFile("SYS", "GoCoreLogInterceptor stopped")
         try { process?.destroy() } catch (_: Exception) {}
+        try { process2?.destroy() } catch (_: Exception) {}  // 销毁第二个进程
         process = null
+        process2 = null
         readerThread = null
         try { fileWriter?.close() } catch (_: Exception) {}
         fileWriter = null
@@ -212,6 +213,22 @@ object GoCoreLogInterceptor {
         val isGoCore = tag != null && GO_CORE_TAGS.any { goTag ->
             tag.lowercase().contains(goTag)
         }
+        
+        // 即使不是 Go 核心日志，也尝试分类错误（捕获所有错误）
+        val category = classifyError(lowerLine)
+        if (category != null) {
+            val detail = extractDetail(line)
+            if (detail.isNotBlank()) {
+                // 去重
+                val dedupKey = "${category.name}:${detail.take(100)}"
+                if (!isDuplicate(dedupKey)) {
+                    Log.w(TAG, "[${category.title}] $detail")
+                    writeToFile(category.title, detail)
+                }
+            }
+        }
+        
+        // 如果是 Go 核心日志，添加到缓冲区
         if (isGoCore) {
             val detail = extractDetail(line)
             synchronized(logBuffer) {
@@ -220,19 +237,6 @@ object GoCoreLogInterceptor {
             }
             writeToFile(tag ?: "Go", detail)
         }
-        if (!isGoCore) return
-
-        // 分类错误
-        val category = classifyError(lowerLine) ?: return
-        val detail = extractDetail(line)
-        if (detail.isBlank()) return
-
-        // 去重
-        val dedupKey = "${category.name}:${detail.take(100)}"
-        if (isDuplicate(dedupKey)) return
-
-        Log.w(TAG, "[${category.title}] $detail")
-        writeToFile(category.title, detail)
     }
 
     private fun extractKunBoxHttpDetail(line: String): String {
@@ -261,9 +265,23 @@ object GoCoreLogInterceptor {
     }
 
     private fun extractTag(line: String): String? {
-        val match = Regex("""\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+\s+\d+\s+\d+\s+[VDIWEF]\s+(\S+?)\s*:""")
+        // 支持多种 logcat 格式
+        // 格式 1: MM-dd HH:mm:ss.SSS PID TID Level Tag: message
+        val match1 = Regex("""\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+\s+\d+\s+\d+\s+[VDIWEF]\s+(\S+?)\s*:""")
             .find(line)
-        return match?.groupValues?.get(1)
+        if (match1 != null) return match1.groupValues[1]
+        
+        // 格式 2: I/Tag: message (简短格式)
+        val match2 = Regex("""^\s*([VDIWEF])/\s*(\S+?):""")
+            .find(line)
+        if (match2 != null) return match2.groupValues[2]
+        
+        // 格式 3: tag: message (无级别)
+        val match3 = Regex("""^([a-zA-Z0-9_-]+):\s+""")
+            .find(line)
+        if (match3 != null) return match3.groupValues[1]
+        
+        return null
     }
 
     private fun extractDetail(line: String): String {
