@@ -19,12 +19,18 @@ object GoCoreLogReader {
         "outbound",
         "transport",
         "dns",
+        "resolve",
+        "lookup",
+        "nameserver",
+        "no such host",
         "failed",
         "error",
         "timeout",
         "refused",
         "tls",
-        "certificate"
+        "certificate",
+        "dial",
+        "connect"
     )
 
     /**

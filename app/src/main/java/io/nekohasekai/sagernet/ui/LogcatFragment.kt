@@ -63,6 +63,10 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
             line.contains("HTTP CONNECT") -> {
                 color = ForegroundColorSpan((0xFF00BFFF).toInt()) // 深天蓝
             }
+            // DNS 相关高亮
+            line.contains("dns", ignoreCase = true) || line.contains("resolve", ignoreCase = true) || line.contains("lookup", ignoreCase = true) -> {
+                color = ForegroundColorSpan((0xFFFFA500).toInt()) // 橙色
+            }
             line.contains("FAILED") || line.contains("failed") -> {
                 color = ForegroundColorSpan(Color.RED)
             }
