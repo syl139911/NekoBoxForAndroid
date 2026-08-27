@@ -225,8 +225,10 @@ def patch_client():
 
 \tconn, err := c.dialer.DialContext(ctx, N.NetworkTCP, c.serverAddr)
 \tif err != nil {
+\t\tfmt.Fprintf(os.Stderr, "[KunBox-HTTP] dial to proxy FAILED: %s err=%v\\n", c.serverAddr, err)
 \t\treturn nil, err
 \t}
+\tfmt.Fprintf(os.Stderr, "[KunBox-HTTP] dial to proxy OK: %s\\n", c.serverAddr)
 
 \t// ================================================================
 \t// raw TCP CONNECT (替换 Go http.Request.Write)
@@ -282,8 +284,10 @@ def patch_client():
 
 \traw.WriteString("\\r\\n")
 
+\tfmt.Fprintf(os.Stderr, "[KunBox-HTTP] CONNECT >>> %s", raw.String())
 \t_, err = conn.Write([]byte(raw.String()))
 \tif err != nil {
+\t\tfmt.Fprintf(os.Stderr, "[KunBox-HTTP] CONNECT write FAILED: err=%v\\n", err)
 \t\tconn.Close()
 \t\treturn nil, err
 \t}
@@ -296,10 +300,12 @@ def patch_client():
 \t// 读取状态行
 \tstatusLine, err := reader.ReadString('\\n')
 \tif err != nil {
+\t\tfmt.Fprintf(os.Stderr, "[KunBox-HTTP] read status line FAILED: err=%v\\n", err)
 \t\tconn.Close()
 \t\treturn nil, E.New("failed to read proxy response: ", err)
 \t}
 \tstatusLine = strings.TrimSpace(statusLine)
+\tfmt.Fprintf(os.Stderr, "[KunBox-HTTP] proxy status line: %q\\n", statusLine)
 
 \t// 读取 response headers
 \tfor {
@@ -348,6 +354,7 @@ def patch_client():
     needed_imports = {
         '"strings"': 'strings',
         '"fmt"': 'fmt',
+        '"os"': 'os',
         '"encoding/base64"': 'base64',
         'std_bufio "bufio"': 'std_bufio',
     }
