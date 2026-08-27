@@ -258,6 +258,7 @@ class BaseService {
 
                 // change the state
                 data.changeState(State.Stopped, msg)
+                    GoCoreLogInterceptor.stop()
                 // stop the service if nothing has bound to it
                 if (restart) startRunner() else {
                     stopSelf()
@@ -372,6 +373,7 @@ class BaseService {
 
                     startProcesses()
                     data.changeState(State.Connected)
+                    GoCoreLogInterceptor.start(this as Context)
 
                     lateInit()
                 } catch (_: CancellationException) { // if the job was cancelled, it is canceller's responsibility to call stopRunner
