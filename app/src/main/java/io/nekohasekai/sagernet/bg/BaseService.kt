@@ -374,7 +374,11 @@ class BaseService {
 
                     startProcesses()
                     data.changeState(State.Connected)
-                    GoCoreLogInterceptor.start(this@Interface as Context)
+                    // 延迟启动 GoCoreLogInterceptor，等待 Go 进程完全初始化
+                    GlobalScope.launch {
+                        delay(2000)  // 等待 2 秒
+                        GoCoreLogInterceptor.start(this@Interface as Context)
+                    }
 
                     lateInit()
                 } catch (_: CancellationException) { // if the job was cancelled, it is canceller's responsibility to call stopRunner

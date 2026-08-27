@@ -139,17 +139,28 @@ object GoCoreLogInterceptor {
             Log.i(TAG, "Go core log interceptor started")
             try {
                 val pid = android.os.Process.myPid()
-                val proc = Runtime.getRuntime().exec(arrayOf(
-                    "logcat", "--pid=$pid", "-T", "0", "*:W", "GoLog:I", "system.err:I"
+                // 🆕 延迟启动，等待 Go 进程完全初始化
+                Thread.sleep(2000)
+                
+                // 🆕 双重策略：当前进程 + 所有进程
+                val proc1 = Runtime.getRuntime().exec(arrayOf(
+                    "logcat", "--pid=$pid", "-T", "0", "-v", "threadtime", "*:V"
                 ))
-                process = proc
+                val proc2 = Runtime.getRuntime().exec(arrayOf(
+                    "logcat", "-T", "0", "-v", "threadtime", "*:V"
+                ))
+                process = proc1
 
-                val reader = BufferedReader(InputStreamReader(proc.inputStream))
-                var line: String?
+                val reader1 = BufferedReader(InputStreamReader(proc1.inputStream))
+                val reader2 = BufferedReader(InputStreamReader(proc2.inputStream))
+                var line1: String?
+                var line2: String?
 
                 while (running) {
-                    line = reader.readLine() ?: break
-                    processLogLine(line)
+                    line1 = reader1.readLine() ?: break
+                    line2 = reader2.readLine() ?: break
+                    processLogLine(line1)
+                    processLogLine(line2)
                 }
             } catch (e: Exception) {
                 if (running) Log.e(TAG, "Log interceptor error", e)
