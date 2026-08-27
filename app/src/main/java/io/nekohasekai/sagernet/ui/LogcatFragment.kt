@@ -25,9 +25,6 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
 
     lateinit var binding: LayoutLogcatBinding
 
-    // true = Go 核心日志 (实时拦截), false = neko.log
-    private var showGoCoreLog = true
-
     @SuppressLint("RestrictedApi", "WrongConstant")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -78,10 +75,13 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
     }
 
     private fun reloadSession() {
-        val text = if (showGoCoreLog) {
-            GoCoreLogInterceptor.getRecentLogs(300)
-        } else {
-            String(SendLog.getNekoLog(50 * 1024))
+        // 合并显示全部日志：GoCore 拦截缓冲区 + neko.log（含全部 Go 核心日志）
+        val goCore = GoCoreLogInterceptor.getRecentLogs(300)
+        val neko = String(SendLog.getNekoLog(50 * 1024))
+        val text = when {
+            goCore.isBlank() -> neko
+            neko.isBlank() -> goCore
+            else -> neko + "\n\n----- Go Core(拦截) -----\n" + goCore
         }
 
         val span = SpannableString(text)
@@ -132,9 +132,7 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
             }
 
             R.id.action_toggle_log_source -> {
-                showGoCoreLog = !showGoCoreLog
-                toolbar.menu.findItem(R.id.action_toggle_log_source)?.title =
-                    if (showGoCoreLog) "NekoLog" else "Go Core"
+                // 日志已合并显示全部来源，此按钮仅作刷新
                 reloadSession()
             }
         }
