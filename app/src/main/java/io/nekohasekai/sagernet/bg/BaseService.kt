@@ -374,7 +374,7 @@ class BaseService {
 
                     startProcesses()
                     data.changeState(State.Connected)
-                    GoCoreLogInterceptor.start(this as Context)
+                    GoCoreLogInterceptor.start(this@Interface as Context)
 
                     lateInit()
                 } catch (_: CancellationException) { // if the job was cancelled, it is canceller's responsibility to call stopRunner
