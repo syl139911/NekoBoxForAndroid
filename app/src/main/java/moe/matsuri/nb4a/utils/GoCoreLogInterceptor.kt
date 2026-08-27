@@ -152,14 +152,19 @@ object GoCoreLogInterceptor {
 
                 val reader1 = BufferedReader(InputStreamReader(proc1.inputStream))
                 val reader2 = BufferedReader(InputStreamReader(proc2.inputStream))
-                var line1: String?
-                var line2: String?
 
                 while (running) {
-                    line1 = reader1.readLine() ?: break
-                    line2 = reader2.readLine() ?: break
-                    processLogLine(line1)
-                    processLogLine(line2)
+                    // 按时间顺序读取：优先读取最新日志
+                    val line1 = try { reader1.readLine() } catch (_: Exception) { null }
+                    val line2 = try { reader2.readLine() } catch (_: Exception) { null }
+
+                    line1?.let { processLogLine(it) }
+                    line2?.let { processLogLine(it) }
+
+                    // 如果两个都为空，尝试等待新的日志
+                    if (line1 == null && line2 == null) {
+                        try { Thread.sleep(100) } catch (_: Exception) { break }
+                    }
                 }
             } catch (e: Exception) {
                 if (running) Log.e(TAG, "Log interceptor error", e)
@@ -264,23 +269,22 @@ object GoCoreLogInterceptor {
         return null
     }
 
+    // 预编译正则表达式，避免重复编译
+    private val TAG_REGEX_V1 = Regex("""\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+\s+\d+\s+\d+\s+[VDIWEF]\s+(\S+?)\s*:""")
+    private val TAG_REGEX_V2 = Regex("""^\s*([VDIWEF])/\s*(\S+?):""")
+    private val TAG_REGEX_V3 = Regex("""^([a-zA-Z0-9_-]+):\s+""")
+
     private fun extractTag(line: String): String? {
         // 支持多种 logcat 格式
-        // 格式 1: MM-dd HH:mm:ss.SSS PID TID Level Tag: message
-        val match1 = Regex("""\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+\s+\d+\s+\d+\s+[VDIWEF]\s+(\S+?)\s*:""")
-            .find(line)
+        val match1 = TAG_REGEX_V1.find(line)
         if (match1 != null) return match1.groupValues[1]
-        
-        // 格式 2: I/Tag: message (简短格式)
-        val match2 = Regex("""^\s*([VDIWEF])/\s*(\S+?):""")
-            .find(line)
+
+        val match2 = TAG_REGEX_V2.find(line)
         if (match2 != null) return match2.groupValues[2]
-        
-        // 格式 3: tag: message (无级别)
-        val match3 = Regex("""^([a-zA-Z0-9_-]+):\s+""")
-            .find(line)
+
+        val match3 = TAG_REGEX_V3.find(line)
         if (match3 != null) return match3.groupValues[1]
-        
+
         return null
     }
 
