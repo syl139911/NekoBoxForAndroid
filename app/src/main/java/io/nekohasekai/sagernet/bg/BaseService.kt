@@ -375,7 +375,7 @@ class BaseService {
                     startProcesses()
                     data.changeState(State.Connected)
                     // 延迟启动 GoCoreLogInterceptor，等待 Go 进程完全初始化
-                    lifecycleScope.launch {
+                    runOnDefaultDispatcher {
                         delay(2000)  // 等待 2 秒
                         GoCoreLogInterceptor.start(this@Interface as Context)
                     }
