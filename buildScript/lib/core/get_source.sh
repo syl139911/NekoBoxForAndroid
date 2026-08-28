@@ -51,11 +51,15 @@ if ! grep -q "^replace github.com/sagernet/sing => $SING_ABS" sing-box/go.mod; t
 echo "go.mod replace 已解开 ✓ (绝对路径: $SING_ABS)"
 echo "  校验补丁 sing 的 Options 含 DelHost: $(grep -c 'DelHost' "$SING_ABS/protocol/http/client.go" 2>/dev/null || echo 0) 处"
 
-# 应用 del_host 补丁：调用 6e603c0 完整补丁脚本（该版本编译的核心被验证过有网）
-PATCH_SCRIPT="$NB4A_REPO/kunbox-patch/nekobox_http_patch.py"
-[ -f "$PATCH_SCRIPT" ] || { echo "PATCH SCRIPT MISSING: $PATCH_SCRIPT"; exit 1; }
-python3 "$PATCH_SCRIPT" "$(pwd)/sing-box" "$(pwd)/sing"
-echo "补丁已通过脚本应用 ✓"
+# 应用 del_host 补丁：直接复制 old-main 验证过的补丁后源码
+PATCHED="$NB4A_REPO/kunbox-patch/patched-source"
+[ -f "$PATCHED/option/simple.go" ] || { echo "PATCHED SOURCE MISSING: $PATCHED/option/simple.go"; exit 1; }
+[ -f "$PATCHED/protocol/http/outbound.go" ] || { echo "PATCHED SOURCE MISSING: $PATCHED/protocol/http/outbound.go"; exit 1; }
+[ -f "$PATCHED/protocol/http/client.go" ] || { echo "PATCHED SOURCE MISSING: $PATCHED/protocol/http/client.go"; exit 1; }
+cp "$PATCHED/option/simple.go" sing-box/option/simple.go
+cp "$PATCHED/protocol/http/outbound.go" sing-box/protocol/http/outbound.go
+cp "$PATCHED/protocol/http/client.go" sing/protocol/http/client.go
+echo "补丁文件已复制 ✓"
 
 # 校验补丁确实生效
 grep -q "DelHost" sing-box/option/simple.go || { echo "PATCH FAILED: simple.go 未包含 DelHost"; exit 1; }
